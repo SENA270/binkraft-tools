@@ -2,6 +2,13 @@ import Link from "next/link";
 
 const tools = [
   {
+    href: "/commute",
+    title: "通勤時間の生涯換算",
+    description: "片道の通勤時間を入力するだけ。人生の何年を通勤に使ってる？",
+    emoji: "🚃",
+    color: "from-sky-500 to-blue-600",
+  },
+  {
     href: "/gaman",
     title: "ガマンの値段",
     description: "日々の我慢を金額に変換。年間でいくら節約できるか計算",
