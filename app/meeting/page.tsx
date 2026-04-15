@@ -288,12 +288,43 @@ export default function MeetingPage() {
           </button>
         )}
 
+        {/* 提案セクション */}
+        {!running && seconds > 0 && (
+          <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6">
+            <h2 className="text-lg font-bold text-zinc-900">
+              会議をもっと効率的に
+            </h2>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl bg-blue-50 p-4">
+                <p className="font-bold text-blue-800">📋 会議を減らすツールを導入</p>
+                <p className="mt-1 text-sm text-blue-600">
+                  非同期コミュニケーションツールで「その会議、チャットでよくない？」を実現。年間¥{Math.round(totalCost * 52).toLocaleString()}の節約になるかも。
+                </p>
+                {/* PR: SaaSツールのアフィリエイトリンク設置予定 */}
+              </div>
+              <div className="rounded-xl bg-emerald-50 p-4">
+                <p className="font-bold text-emerald-800">🔄 会議が多すぎる環境を変える</p>
+                <p className="mt-1 text-sm text-emerald-600">
+                  非同期ファーストな文化の会社に転職するのも一つの手。
+                </p>
+                {/* PR: 転職サイトのアフィリエイトリンク設置予定 */}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 他のツール */}
         <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-4">
           <p className="text-sm font-bold text-zinc-600 mb-3">
             他のツールも試す
           </p>
           <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/commute"
+              className="rounded-lg bg-sky-50 p-3 text-center text-sm font-medium text-sky-700 hover:bg-sky-100 transition"
+            >
+              🚃 通勤時間の生涯換算
+            </Link>
             <Link
               href="/gaman"
               className="rounded-lg bg-amber-50 p-3 text-center text-sm font-medium text-amber-700 hover:bg-amber-100 transition"

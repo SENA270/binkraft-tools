@@ -243,12 +243,43 @@ export default function GamanPage() {
           </div>
         )}
 
+        {/* 提案セクション */}
+        {checkedItems.length > 0 && (
+          <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6">
+            <h2 className="text-lg font-bold text-zinc-900">
+              もっとお得に暮らすには
+            </h2>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl bg-amber-50 p-4">
+                <p className="font-bold text-amber-800">🎁 ポイ活で取り戻す</p>
+                <p className="mt-1 text-sm text-amber-600">
+                  普段の買い物をポイントサイト経由にするだけで、年間{Math.min(Math.round(yearlyTotal * 0.05), 30000).toLocaleString()}円分のポイントが貯まるかも。
+                </p>
+                {/* PR: ポイ活サイトのアフィリエイトリンク設置予定 */}
+              </div>
+              <div className="rounded-xl bg-green-50 p-4">
+                <p className="font-bold text-green-800">💰 家計の見直しを相談</p>
+                <p className="mt-1 text-sm text-green-600">
+                  FPへの無料相談で、保険・通信費・サブスクの見直しポイントが見つかるかも。
+                </p>
+                {/* PR: FP無料相談のアフィリエイトリンク設置予定 */}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 他のツール */}
         <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-4">
           <p className="text-sm font-bold text-zinc-600 mb-3">
             他のツールも試す
           </p>
           <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/commute"
+              className="rounded-lg bg-sky-50 p-3 text-center text-sm font-medium text-sky-700 hover:bg-sky-100 transition"
+            >
+              🚃 通勤時間の生涯換算
+            </Link>
             <Link
               href="/oshikatsu"
               className="rounded-lg bg-purple-50 p-3 text-center text-sm font-medium text-purple-700 hover:bg-purple-100 transition"

@@ -232,12 +232,43 @@ export default function OshikatsuPage() {
           </div>
         )}
 
+        {/* 提案セクション */}
+        {entries.length > 0 && (
+          <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6">
+            <h2 className="text-lg font-bold text-zinc-900">
+              推し活をもっとお得に
+            </h2>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl bg-purple-50 p-4">
+                <p className="font-bold text-purple-800">💳 推し活向けクレカで還元率UP</p>
+                <p className="mt-1 text-sm text-purple-600">
+                  エンタメ系の還元率が高いカードなら、年間{Math.round(displayTotal * 0.03).toLocaleString()}円分のポイントが戻ってくるかも。
+                </p>
+                {/* PR: クレジットカードのアフィリエイトリンク設置予定 */}
+              </div>
+              <div className="rounded-xl bg-pink-50 p-4">
+                <p className="font-bold text-pink-800">📊 推し活の予算管理をもっと楽に</p>
+                <p className="mt-1 text-sm text-pink-600">
+                  家計簿アプリでカテゴリ別に推し活費を自動記録。使いすぎ防止にも。
+                </p>
+                {/* PR: 家計簿アプリのアフィリエイトリンク設置予定 */}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 他のツール */}
         <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-4">
           <p className="text-sm font-bold text-zinc-600 mb-3">
             他のツールも試す
           </p>
           <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/commute"
+              className="rounded-lg bg-sky-50 p-3 text-center text-sm font-medium text-sky-700 hover:bg-sky-100 transition"
+            >
+              🚃 通勤時間の生涯換算
+            </Link>
             <Link
               href="/gaman"
               className="rounded-lg bg-amber-50 p-3 text-center text-sm font-medium text-amber-700 hover:bg-amber-100 transition"
