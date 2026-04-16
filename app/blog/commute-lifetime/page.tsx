@@ -123,6 +123,23 @@ export default function CommuteBlogPage() {
             フルリモートなら通勤時間はゼロになります。
             IT・Web業界ではリモートワークを導入している企業が増えています。
           </p>
+          <div className="not-prose my-4 rounded-lg border border-sky-200 bg-sky-50 p-4">
+            <p className="text-xs text-zinc-400 mb-2">PR</p>
+            <a
+              href="https://px.a8.net/svt/ejp?a8mat=4B1MHQ+7IAU6Y+3IZO+I2PXE"
+              rel="nofollow noopener"
+              target="_blank"
+              className="text-sm font-medium text-sky-700 hover:underline"
+            >
+              自社で腰を落ち着けて仕事がしたい方は【社内SE転職ナビ】へ
+            </a>
+            <img
+              src="https://www14.a8.net/0.gif?a8mat=4B1MHQ+7IAU6Y+3IZO+I2PXE"
+              width={1}
+              height={1}
+              alt=""
+            />
+          </div>
 
           <h3>2. 職場の近くに引っ越す</h3>
           <p>
