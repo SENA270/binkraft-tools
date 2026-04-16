@@ -66,7 +66,7 @@ export default function OshikatsuPage() {
   const oshiLabel = oshiName ? `${oshiName}に` : "推しに";
   const shareText =
     entries.length > 0
-      ? `${oshiLabel}月${total.toLocaleString()}円（年${(total * 12).toLocaleString()}円）使ってた💜\n\n${message?.text}\n\n▶ あなたも計算してみて`
+      ? `${oshiLabel}月${total.toLocaleString()}円（年${(total * 12).toLocaleString()}円）使ってた💜\n\n${message?.text}\n\n▶ あなたも計算してみて\nhttps://binkraft-tools.vercel.app/oshikatsu`
       : "";
 
   return (

@@ -35,7 +35,7 @@ export default function CommutePage() {
   const bestActivity = ACTIVITIES.filter((a) => a.hours <= lifetimeHours).pop();
 
   const shareText = calculated
-    ? `通勤時間の生涯換算🚃\n\n片道${oneWayMinutes}分 × ${workingYears}年\n= 約${Math.round(lifetimeHours).toLocaleString()}時間（${lifetimeYears.toFixed(1)}年分）\n\n人生の${lifetimePercent.toFixed(1)}%が通勤に消えてる…\n\n▶ あなたも計算してみて`
+    ? `通勤時間の生涯換算🚃\n\n片道${oneWayMinutes}分 × ${workingYears}年\n= 約${Math.round(lifetimeHours).toLocaleString()}時間（${lifetimeYears.toFixed(1)}年分）\n\n人生の${lifetimePercent.toFixed(1)}%が通勤に消えてる…\n\n▶ あなたも計算してみて\nhttps://binkraft-tools.vercel.app/commute`
     : "";
 
   return (

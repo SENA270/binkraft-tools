@@ -80,7 +80,7 @@ export default function MeetingPage() {
 
   const shareText =
     seconds > 0
-      ? `この会議のコスト💸 ${formatTime(seconds)}・${people}人 → ¥${totalCost.toLocaleString()}${comparison ? `（${comparison}）` : ""}\n\n▶ あなたの会議もチェック`
+      ? `この会議のコスト💸 ${formatTime(seconds)}・${people}人 → ¥${totalCost.toLocaleString()}${comparison ? `（${comparison}）` : ""}\n\n▶ あなたの会議もチェック\nhttps://binkraft-tools.vercel.app/meeting`
       : "";
 
   return (

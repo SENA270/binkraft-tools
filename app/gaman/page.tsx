@@ -73,7 +73,7 @@ export default function GamanPage() {
 
   const shareText =
     checkedItems.length > 0
-      ? `ガマンの値段💰 年間${yearlyTotal.toLocaleString()}円\n\n▶ あなたも計算してみて`
+      ? `ガマンの値段💰 年間${yearlyTotal.toLocaleString()}円\n\n▶ あなたも計算してみて\nhttps://binkraft-tools.vercel.app/gaman`
       : "";
 
   return (
