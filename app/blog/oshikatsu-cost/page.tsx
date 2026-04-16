@@ -24,7 +24,7 @@ export default function OshikatsuBlogPage() {
         </h1>
         <time className="mt-2 block text-sm text-zinc-400">2026-04-16</time>
 
-        <div className="mt-8 prose prose-zinc prose-lg max-w-none">
+        <div className="mt-8 prose prose-zinc prose-lg max-w-none prose-headings:mt-10 prose-headings:mb-4 prose-h2:text-2xl prose-h2:border-b prose-h2:border-zinc-200 prose-h2:pb-2 prose-h3:text-xl prose-p:leading-relaxed prose-p:mb-4 prose-li:leading-relaxed prose-a:text-blue-700 hover:prose-a:underline prose-strong:text-zinc-900">
           <div className="rounded-lg bg-purple-50 p-5 mb-8 not-prose">
             <p className="font-bold text-purple-900 mb-2">この記事でわかること</p>
             <ul className="text-sm text-purple-800 space-y-1">
