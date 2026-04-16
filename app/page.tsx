@@ -31,9 +31,21 @@ const tools = [
   },
 ];
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "binkraft tools",
+  url: "https://binkraft-tools.vercel.app",
+  description: "シンプルで便利な無料Web計算ツール集。通勤時間の生涯換算、ガマンの値段、推し活費計算機、会議コスト計算機。",
+};
+
 export default function Home() {
   return (
     <main className="flex-1">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
         <h1 className="text-4xl font-black tracking-tight text-zinc-900">
           binkraft tools
