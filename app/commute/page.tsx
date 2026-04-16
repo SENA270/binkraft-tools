@@ -262,6 +262,14 @@ export default function CommutePage() {
               </div>
             </div>
 
+            {/* 関連記事 */}
+            <Link
+              href="/blog/commute-lifetime"
+              className="block rounded-xl border border-sky-200 bg-sky-50 p-4 text-center text-sm font-medium text-sky-700 hover:bg-sky-100 transition"
+            >
+              📝 通勤時間の生涯コスト、詳しく解説 →
+            </Link>
+
             {/* 他のツール */}
             <div className="rounded-xl border border-zinc-200 bg-white p-4">
               <p className="text-sm font-bold text-zinc-600 mb-3">

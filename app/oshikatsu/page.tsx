@@ -257,6 +257,14 @@ export default function OshikatsuPage() {
           </div>
         )}
 
+        {/* 関連記事 */}
+        <Link
+          href="/blog/oshikatsu-cost"
+          className="block rounded-xl border border-purple-200 bg-purple-50 p-4 text-center text-sm font-medium text-purple-700 hover:bg-purple-100 transition"
+        >
+          📝 推し活費について詳しく解説 →
+        </Link>
+
         {/* 他のツール */}
         <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-4">
           <p className="text-sm font-bold text-zinc-600 mb-3">

@@ -268,6 +268,14 @@ export default function GamanPage() {
           </div>
         )}
 
+        {/* 関連記事 */}
+        <Link
+          href="/blog/gaman-cost"
+          className="block rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm font-medium text-amber-700 hover:bg-amber-100 transition"
+        >
+          📝 ガマンの値段、詳しく解説 →
+        </Link>
+
         {/* 他のツール */}
         <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-4">
           <p className="text-sm font-bold text-zinc-600 mb-3">

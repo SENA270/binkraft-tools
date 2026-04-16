@@ -313,6 +313,14 @@ export default function MeetingPage() {
           </div>
         )}
 
+        {/* 関連記事 */}
+        <Link
+          href="/blog/meeting-cost"
+          className="block rounded-xl border border-blue-200 bg-blue-50 p-4 text-center text-sm font-medium text-blue-700 hover:bg-blue-100 transition"
+        >
+          📝 会議コストについて詳しく解説 →
+        </Link>
+
         {/* 他のツール */}
         <div className="mt-10 rounded-xl border border-zinc-200 bg-white p-4">
           <p className="text-sm font-bold text-zinc-600 mb-3">
