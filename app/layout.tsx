@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   },
   description: "シンプルで便利な無料Web計算ツール集。通勤時間の生涯換算、ガマンの値段、推し活費計算機、会議コスト計算機など。",
   metadataBase: new URL("https://binkraft-tools.vercel.app"),
+  verification: {
+    google: "qzM2BXyY98YJiXlja_sQ1_34_CgF4irjIFQYxaM-ELU",
+  },
   openGraph: {
     siteName: "binkraft tools",
     locale: "ja_JP",
