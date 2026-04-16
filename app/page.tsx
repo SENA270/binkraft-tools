@@ -62,7 +62,15 @@ export default function Home() {
             </Link>
           ))}
         </div>
-        <p className="mt-12 text-xs text-zinc-400">&copy; 2026 binkraft</p>
+        <div className="mt-10">
+          <Link
+            href="/blog"
+            className="text-sm text-zinc-400 hover:text-zinc-700 hover:underline"
+          >
+            📝 ブログ — お金・時間にまつわるコラム
+          </Link>
+        </div>
+        <p className="mt-6 text-xs text-zinc-400">&copy; 2026 binkraft</p>
       </div>
     </main>
   );
