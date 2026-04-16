@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "その会議、いくらかかってる？会議コストの計算方法",
   description:
     "会議の参加人数と時間から人件費を計算。1時間の会議が実はいくらのコストか可視化し、会議を減らす・短くするための具体的な方法を紹介します。",
+  openGraph: {
+    title: "その会議、いくらかかってる？会議コストの計算方法",
+    description: "8人×1時間の週次会議、年間125万円。本当に必要？",
+    type: "article",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function MeetingBlogPage() {

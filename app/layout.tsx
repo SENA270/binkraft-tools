@@ -13,7 +13,14 @@ export const metadata: Metadata = {
     default: "binkraft tools | 無料Web計算ツール",
     template: "%s | binkraft tools",
   },
-  description: "シンプルで便利な無料Web計算ツール集",
+  description: "シンプルで便利な無料Web計算ツール集。通勤時間の生涯換算、ガマンの値段、推し活費計算機、会議コスト計算機など。",
+  metadataBase: new URL("https://binkraft-tools.vercel.app"),
+  openGraph: {
+    siteName: "binkraft tools",
+    locale: "ja_JP",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

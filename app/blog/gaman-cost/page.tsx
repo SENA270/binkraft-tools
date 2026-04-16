@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "ガマンの値段とは？我慢のコストを数値化してみた",
   description:
     "日々の我慢にはいくらの価値があるのか。飲み会・趣味・買い物…我慢していることの年間コストを計算し、本当に節約になっているか検証します。",
+  openGraph: {
+    title: "ガマンの値段とは？我慢のコストを数値化してみた",
+    description: "日常の我慢4つを全部やると年間22万円の節約。でも1年続けられる？",
+    type: "article",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function GamanBlogPage() {

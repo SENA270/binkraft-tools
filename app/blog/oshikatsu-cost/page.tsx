@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "推し活に年間いくら使ってる？オタク費用の計算方法",
   description:
     "チケット代、グッズ、交通費、遠征費…推し活にかかる年間コストを項目別に計算。自分がいくら使っているかを可視化する無料ツールも紹介します。",
+  openGraph: {
+    title: "推し活に年間いくら使ってる？費用の計算方法",
+    description: "チケット・グッズ・遠征費…全部合計すると年間6万〜24万円以上。",
+    type: "article",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function OshikatsuBlogPage() {

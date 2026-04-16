@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: "通勤時間は人生の何年分？生涯の通勤コストを計算してみた",
   description:
     "片道1時間の通勤を38年間続けると、生涯で約2万時間（2.3年分）を通勤に費やす計算に。あなたの通勤時間を生涯換算できる無料ツールも紹介。",
+  openGraph: {
+    title: "通勤時間は人生の何年分？生涯の通勤コストを計算してみた",
+    description: "片道1時間×38年＝約2万時間。人生の2年以上を通勤に使っている計算です。",
+    type: "article",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function CommuteBlogPage() {
