@@ -38,6 +38,11 @@ export default function RootLayout({
     <html lang="ja" className={`${notoSansJP.variable} h-full antialiased`}>
       <head>
         <Script
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2259965926637571"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+        <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
         />
