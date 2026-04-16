@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
+
+const GA_MEASUREMENT_ID = "G-618KKVRJ69";
 
 const notoSansJP = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
@@ -33,6 +36,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className={`${notoSansJP.variable} h-full antialiased`}>
+      <head>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="ga4" strategy="afterInteractive">
+          {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_MEASUREMENT_ID}');`}
+        </Script>
+      </head>
       <body className="min-h-full flex flex-col bg-zinc-50 font-[family-name:var(--font-noto-sans-jp)]">
         {children}
       </body>
