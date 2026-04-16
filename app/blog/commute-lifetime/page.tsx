@@ -68,7 +68,7 @@ export default function CommuteBlogPage() {
                   <th className="border border-zinc-200 px-4 py-2 text-left">片道</th>
                   <th className="border border-zinc-200 px-4 py-2 text-left">生涯合計</th>
                   <th className="border border-zinc-200 px-4 py-2 text-left">年換算</th>
-                  <th className="border border-zinc-200 px-4 py-2 text-left">時給2,000円換算</th>
+                  <th className="border border-zinc-200 px-4 py-2 text-left">時給2,000円で換算した金額</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,12 +111,11 @@ export default function CommuteBlogPage() {
           </p>
           <ul>
             <li><strong>体力の消耗</strong>：満員電車で消費する体力は、仕事のパフォーマンスに影響する</li>
-            <li><strong>睡眠時間の削減</strong>：通勤が長いほど、起床時間が早くなる</li>
+            <li><strong>睡眠時間の減少</strong>：通勤が長いほど睡眠時間は短くなり、慢性的な寝不足につながる</li>
             <li><strong>ストレス</strong>：遅延、混雑、乗り換えのストレスが毎日積み重なる</li>
-            <li><strong>交通費</strong>：定期代は会社負担でも、それは本来給与に回せるお金</li>
           </ul>
 
-          <h2>リモートワーク・引越し・時間活用で通勤負担を減らす</h2>
+          <h2>通勤時間を減らす2つの方法と、減らせないときの活用法</h2>
 
           <h3>1. リモートワークが可能な仕事を探す</h3>
           <p>
@@ -138,9 +137,15 @@ export default function CommuteBlogPage() {
             移動中にできるインプットは意外と多いです。
           </p>
 
-          <h2>片道の通勤時間を入力するだけで生涯換算できる</h2>
+          <h2>今は気にならなくても、ライフステージの変化で通勤の負担は増していく</h2>
           <p>
-            自分の通勤時間が生涯でどれくらいになるか、具体的な数字で確認できます。
+            今は通勤時間をそこまで気にしていない方も多いかもしれません。
+            でも、結婚や子育てが始まると自由に使える時間は大幅に減ります。
+            そのとき「通勤に毎日2時間取られている」ことの重さは、今とは比較にならないほど大きくなります。
+          </p>
+          <p>
+            何にせよ、まずは今の自分が通勤にどれだけの時間を使っているか、客観的に把握することが一歩になります。
+            以下のツールでは、片道の通勤時間を入力するだけで生涯の通勤時間を計算できます。
           </p>
 
           <div className="not-prose my-8 rounded-xl bg-gradient-to-br from-sky-100 to-blue-100 p-6 text-center">
@@ -157,15 +162,6 @@ export default function CommuteBlogPage() {
               無料で計算してみる →
             </Link>
           </div>
-
-          <h2>まず自分の数字を知ることが、働き方を見直すきっかけになる</h2>
-          <p>
-            毎日の通勤時間は、1日単位で見ると大したことがないように感じます。
-            でも生涯で換算すると、数年分の時間になります。
-          </p>
-          <p>
-            まずは自分の数字を知ることが、働き方を見直すきっかけになるかもしれません。
-          </p>
         </div>
 
         <div className="mt-10 border-t border-zinc-200 pt-6">
