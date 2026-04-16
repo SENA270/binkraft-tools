@@ -34,7 +34,7 @@ export default function OshikatsuBlogPage() {
             </ul>
           </div>
 
-          <h2>推し活の費用、把握できていますか？</h2>
+          <h2>チケット・グッズ・遠征費、合計すると驚く金額になる</h2>
           <p>
             チケット代は覚えている。グッズ代もなんとなくわかる。
             でも交通費、宿泊費、カフェ巡り、配信の投げ銭、推しの誕生日のプレゼント…
@@ -45,7 +45,7 @@ export default function OshikatsuBlogPage() {
             年間で合計すると驚くような金額になることがあります。
           </p>
 
-          <h2>推し活の主な費用項目</h2>
+          <h2>チケット・グッズ・遠征費・配信 — 4大コストの内訳</h2>
 
           <h3>チケット代</h3>
           <p>
@@ -76,7 +76,7 @@ export default function OshikatsuBlogPage() {
             <li><strong>時間のコスト</strong>：チケット争奪戦、物販の並び時間、移動時間</li>
           </ul>
 
-          <h2>推し活費の目安</h2>
+          <h2>ライト月5千円、ミドル月2万円、ヘビー月2万円以上</h2>
 
           <div className="not-prose overflow-x-auto mb-6">
             <table className="w-full text-sm border-collapse">
@@ -111,7 +111,7 @@ export default function OshikatsuBlogPage() {
             </table>
           </div>
 
-          <h2>推し活と家計のバランス</h2>
+          <h2>月の予算・推し貯金・優先順位で無理なく続ける</h2>
           <p>
             推し活は生活を豊かにする大切な活動です。
             だからこそ、無理なく続けるために自分の支出を把握しておくことが大切です。
@@ -122,7 +122,7 @@ export default function OshikatsuBlogPage() {
             <li><strong>優先順位をつける</strong>：全部のイベントに行かなくても、推しは応援できる</li>
           </ul>
 
-          <h2>自分の推し活費を計算してみよう</h2>
+          <h2>項目別に入力するだけで月額・年間を自動計算</h2>
           <p>
             項目別に推し活の費用を入力すると、月額・年間の合計が自動で計算されるツールを用意しました。
           </p>
@@ -142,7 +142,7 @@ export default function OshikatsuBlogPage() {
             </Link>
           </div>
 
-          <h2>まとめ</h2>
+          <h2>支出を把握すれば、推しを長く応援し続けられる</h2>
           <p>
             推し活の費用は、項目が多いため全体像が見えにくくなりがちです。
             一度自分の支出を数字で把握すると、
