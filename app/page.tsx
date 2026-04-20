@@ -16,6 +16,13 @@ const tools = [
     color: "from-amber-500 to-orange-500",
   },
   {
+    href: "/oshikatsu-lifetime",
+    title: "推し活 生涯総額計算機",
+    description: "今のペースで推し続けたら、一生でいくら使う？",
+    emoji: "💜",
+    color: "from-purple-600 to-pink-500",
+  },
+  {
     href: "/oshikatsu",
     title: "推し活費計算機",
     description: "チケット・グッズ・交通費...推しにいくら使ったか計算",
