@@ -29,6 +29,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${BASE_URL}/oshikatsu-lifetime`,
+      lastModified: "2026-04-21",
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}/ai-roi`,
+      lastModified: "2026-04-21",
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE_URL}/meeting`,
       lastModified: "2026-04-16",
       changeFrequency: "monthly",

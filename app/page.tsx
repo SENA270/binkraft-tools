@@ -30,6 +30,13 @@ const tools = [
     color: "from-purple-500 to-pink-500",
   },
   {
+    href: "/ai-roi",
+    title: "AI Subscription ROI Calculator",
+    description: "Is your ChatGPT/Claude subscription worth it? Calculate your real ROI",
+    emoji: "🤖",
+    color: "from-green-500 to-emerald-500",
+  },
+  {
     href: "/meeting",
     title: "会議コスト計算機",
     description: "この会議、いくらかかってる？リアルタイムで金額表示",
