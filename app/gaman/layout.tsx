@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     "コンビニコーヒー、サブスク、タバコ...日々の我慢を金額に変換。年間でいくら節約できるか無料で計算できます。",
   openGraph: {
-    title: "💰 ガマンの値段",
+    title: "ガマンの値段",
     description: "あなたの我慢、年間いくら？ 計算してみよう",
     type: "website",
   },
