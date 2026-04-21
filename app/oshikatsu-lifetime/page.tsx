@@ -231,6 +231,20 @@ export default function OshikatsuLifetimePage() {
               </div>
             </div>
 
+            {/* ライブハウスナビへの送客 */}
+            <a
+              href="https://livehouse-navi.com/blog/live-expedition-guide"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-2xl border border-purple-200 bg-purple-50 p-5 text-center hover:bg-purple-100 transition"
+            >
+              <p className="font-bold text-purple-800">ライブ遠征をもっと快適に</p>
+              <p className="mt-1 text-sm text-purple-600">
+                遠征の持ち物・宿泊・交通手段の完全ガイド
+              </p>
+              <p className="mt-2 text-xs text-purple-500">livehouse-navi.com →</p>
+            </a>
+
             {/* 関連ツール */}
             <div className="rounded-xl border border-zinc-200 bg-white p-4">
               <p className="text-sm font-bold text-zinc-600 mb-3">
