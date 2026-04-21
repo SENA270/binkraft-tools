@@ -91,7 +91,7 @@ export default function MeetingPage() {
         </Link>
 
         <h1 className="mt-4 text-3xl font-black text-zinc-900">
-          🏢 会議コスト計算機
+          会議コスト計算機
         </h1>
         <p className="mt-2 text-zinc-500">
           この会議、いくらかかってる？

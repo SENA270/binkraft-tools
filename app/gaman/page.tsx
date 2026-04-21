@@ -73,7 +73,7 @@ export default function GamanPage() {
 
   const shareText =
     checkedItems.length > 0
-      ? `ガマンの値段💰 年間${yearlyTotal.toLocaleString()}円\n\n▶ あなたも計算してみて\nhttps://binkraft-tools.vercel.app/gaman`
+      ? `ガマンの値段年間${yearlyTotal.toLocaleString()}円\n\n▶ あなたも計算してみて\nhttps://binkraft-tools.vercel.app/gaman`
       : "";
 
   return (
@@ -84,7 +84,7 @@ export default function GamanPage() {
         </Link>
 
         <h1 className="mt-4 text-3xl font-black text-zinc-900">
-          💰 ガマンの値段
+          ガマンの値段
         </h1>
         <p className="mt-2 text-zinc-500">
           我慢してるもの、年間でいくらになるか知ってますか？
@@ -258,7 +258,7 @@ export default function GamanPage() {
                 {/* PR: ポイ活サイトのアフィリエイトリンク設置予定 */}
               </div>
               <div className="rounded-xl bg-green-50 p-4">
-                <p className="font-bold text-green-800">💰 家計の見直しを相談</p>
+                <p className="font-bold text-green-800">家計の見直しを相談</p>
                 <p className="mt-1 text-sm text-green-600">
                   FPへの無料相談で、保険・通信費・サブスクの見直しポイントが見つかるかも。
                 </p>

@@ -46,7 +46,7 @@ export default function CommutePage() {
         </Link>
 
         <h1 className="mt-4 text-3xl font-black text-zinc-900">
-          🚃 通勤時間の生涯換算
+          通勤時間の生涯換算
         </h1>
         <p className="mt-2 text-zinc-500">
           あなたの人生、通勤に何年使ってる？

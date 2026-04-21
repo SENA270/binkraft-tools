@@ -77,7 +77,7 @@ export default function OshikatsuPage() {
         </Link>
 
         <h1 className="mt-4 text-3xl font-black text-zinc-900">
-          💜 推し活費計算機
+          推し活費計算機
         </h1>
         <p className="mt-2 text-zinc-500">
           推しにいくら使ってるか、正直に計算してみよう
