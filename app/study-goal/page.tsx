@@ -83,10 +83,23 @@ export default function StudyGoalPage() {
     setEditing(false);
   };
 
+  useEffect(() => {
+    // iOS: スクロールでアドレスバーを隠す
+    setTimeout(() => window.scrollTo(0, 1), 100);
+  }, []);
+
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center relative px-4 overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #0a1628 0%, #0f1d33 50%, #1e3a5f 100%)" }}
+      className="flex flex-col items-center justify-center relative px-4 overflow-hidden"
+      style={{
+        background: "linear-gradient(135deg, #0a1628 0%, #0f1d33 50%, #1e3a5f 100%)",
+        minHeight: "100dvh",
+        height: "100dvh",
+        width: "100vw",
+        position: "fixed",
+        top: 0,
+        left: 0,
+      }}
     >
       <FullscreenButton />
 
