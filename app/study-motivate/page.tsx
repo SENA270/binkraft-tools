@@ -127,7 +127,7 @@ export default function StudyMotivatePage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center cursor-pointer select-none relative"
-      style={{ background: "linear-gradient(135deg, #0f1f3d 0%, #1e3a5f 50%, #1a3050 100%)" }}
+      style={{ background: "linear-gradient(135deg, #0a1628 0%, #0f1d33 50%, #1e3a5f 100%)" }}
       onClick={nextMessage}
     >
       <FullscreenButton />

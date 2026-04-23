@@ -191,20 +191,45 @@ export default function StudyTimerPage() {
 
   const toggleRunning = () => setRunning((r) => !r);
 
-  const reset = () => {
-    setRunning(false);
-    setMode("focus");
-    setTimeLeft(FOCUS_MINUTES * 60);
-  };
-
   const totalDuration = mode === "focus" ? FOCUS_MINUTES * 60 : BREAK_MINUTES * 60;
   const progress = 1 - timeLeft / totalDuration;
   const circumference = 2 * Math.PI * 140;
   const strokeDashoffset = circumference * (1 - progress);
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [newBlock, setNewBlock] = useState(false);
+
+  // Track previous pomodoroCount to trigger animation
+  const prevPomodoroRef = useRef(0);
+  useEffect(() => {
+    if (pomodoroCount > prevPomodoroRef.current) {
+      setNewBlock(true);
+      const t = setTimeout(() => setNewBlock(false), 600);
+      prevPomodoroRef.current = pomodoroCount;
+      return () => clearTimeout(t);
+    }
+  }, [pomodoroCount]);
+
+  const handleReset = useCallback(() => {
+    if (running || timeLeft < (mode === "focus" ? FOCUS_MINUTES * 60 : BREAK_MINUTES * 60)) {
+      setShowResetConfirm(true);
+    } else {
+      setRunning(false);
+      setMode("focus");
+      setTimeLeft(FOCUS_MINUTES * 60);
+    }
+  }, [running, timeLeft, mode]);
+
+  const confirmReset = () => {
+    setShowResetConfirm(false);
+    setRunning(false);
+    setMode("focus");
+    setTimeLeft(FOCUS_MINUTES * 60);
+  };
+
   const isFocus = mode === "focus";
   const bgColor = isFocus
-    ? "linear-gradient(135deg, #0f1f3d 0%, #1e3a5f 50%, #1a3050 100%)"
+    ? "linear-gradient(135deg, #0a1628 0%, #0f1d33 50%, #1e3a5f 100%)"
     : "linear-gradient(135deg, #0f3d2a 0%, #1a5f3e 50%, #1a5040 100%)";
 
   return (
@@ -259,12 +284,58 @@ export default function StudyTimerPage() {
           {running ? "ポーズ" : "スタート"}
         </button>
         <button
-          onClick={reset}
+          onClick={handleReset}
           className="px-8 py-3 rounded-full text-lg font-bold bg-white/10 hover:bg-white/20 text-white transition-colors"
         >
           リセット
         </button>
       </div>
+
+      {/* Pomodoro bar graph */}
+      {pomodoroCount > 0 && (
+        <div className="mb-6 flex items-end gap-1">
+          {Array.from({ length: pomodoroCount }).map((_, i) => (
+            <div
+              key={i}
+              className={`w-6 md:w-8 rounded-t transition-all duration-500 ${
+                isFocus ? "bg-blue-400" : "bg-green-400"
+              } ${i === pomodoroCount - 1 && newBlock ? "animate-bounce" : ""}`}
+              style={{
+                height: `${Math.min(20 + i * 8, 80)}px`,
+                opacity: 0.6 + (i / pomodoroCount) * 0.4,
+              }}
+            />
+          ))}
+          <span className="ml-2 text-white/50 text-xs self-center">
+            {pomodoroCount}ポモドーロ達成
+          </span>
+        </div>
+      )}
+
+      {/* Reset confirm dialog */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-[#1e3a5f] rounded-2xl p-8 max-w-sm mx-4 text-center shadow-2xl border border-white/10">
+            <div className="text-4xl mb-4">⚠️</div>
+            <p className="text-white text-lg font-bold mb-2">ここまで積み上げたものが無駄になるけど本当にいいの？</p>
+            <p className="text-white/60 text-sm mb-6">今のタイマーの進捗がリセットされます</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="px-6 py-3 rounded-full text-base font-bold bg-blue-500 hover:bg-blue-400 text-white transition-colors"
+              >
+                やっぱり続ける
+              </button>
+              <button
+                onClick={confirmReset}
+                className="px-6 py-3 rounded-full text-base font-bold bg-white/10 hover:bg-white/20 text-white transition-colors"
+              >
+                やめる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-6 md:gap-10 text-center">

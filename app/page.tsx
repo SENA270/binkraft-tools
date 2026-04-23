@@ -64,6 +64,13 @@ const tools = [
     emoji: "🕐",
     color: "from-slate-700 to-blue-900",
   },
+  {
+    href: "/study-instructor",
+    title: "鬼教官「基本情報」",
+    description: "逃げるな。鬼教官がお前を叩き直す。閉じたら負けだ",
+    emoji: "👹",
+    color: "from-red-600 to-red-800",
+  },
 ];
 
 const jsonLd = {
@@ -93,6 +100,7 @@ export default function Home() {
             <Link
               key={tool.href}
               href={tool.href}
+              target="_blank"
               className="group flex items-center gap-5 rounded-2xl bg-white p-6 shadow-sm border border-zinc-200 transition hover:shadow-md hover:border-zinc-300 text-left"
             >
               <div

@@ -89,7 +89,7 @@ export default function StudyClockPage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative"
-      style={{ background: "linear-gradient(135deg, #080e1a 0%, #0f1729 50%, #0d1320 100%)" }}
+      style={{ background: "linear-gradient(135deg, #0a1628 0%, #0f1d33 50%, #1e3a5f 100%)" }}
     >
       <FullscreenButton />
 
