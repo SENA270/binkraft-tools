@@ -143,64 +143,75 @@ export default function StudyCountdownPage() {
         />
       </div>
 
-      {/* Closing-in walls */}
+      {/* Closing-in walls - blue only, intensifying */}
       <div
         className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-linear"
         style={{
-          boxShadow: `inset 0 0 ${Math.round(progress * 2)}px ${Math.round(progress * 1.5)}px ${
-            finished ? "rgba(34,197,94,0.4)" : progress > 80 ? "rgba(239,68,68,0.6)" : progress > 50 ? "rgba(251,191,36,0.4)" : "rgba(59,130,246,0.3)"
-          }`,
+          boxShadow: `inset 0 0 ${Math.round(progress * 2.5)}px ${Math.round(progress * 2)}px rgba(59,130,246,${Math.min(0.1 + progress * 0.006, 0.7)})`,
         }}
       />
-      {/* Top bar */}
+      {/* Top */}
       <div
         className="absolute top-0 left-0 right-0 transition-all duration-1000"
         style={{
-          height: `${Math.min(progress * 0.35, 30)}%`,
-          background: `linear-gradient(to bottom, ${
-            progress > 80 ? "rgba(239,68,68,0.3)" : "rgba(59,130,246,0.2)"
-          }, transparent)`,
+          height: `${Math.min(progress * 0.4, 35)}%`,
+          background: `linear-gradient(to bottom, rgba(30,58,95,${Math.min(0.3 + progress * 0.005, 0.8)}), transparent)`,
         }}
       />
-      {/* Bottom bar */}
+      {/* Bottom */}
       <div
         className="absolute bottom-0 left-0 right-0 transition-all duration-1000"
         style={{
-          height: `${Math.min(progress * 0.35, 30)}%`,
-          background: `linear-gradient(to top, ${
-            progress > 80 ? "rgba(239,68,68,0.3)" : "rgba(59,130,246,0.2)"
-          }, transparent)`,
+          height: `${Math.min(progress * 0.4, 35)}%`,
+          background: `linear-gradient(to top, rgba(30,58,95,${Math.min(0.3 + progress * 0.005, 0.8)}), transparent)`,
         }}
       />
-      {/* Left bar */}
+      {/* Left */}
       <div
         className="absolute top-0 bottom-0 left-0 transition-all duration-1000"
         style={{
-          width: `${Math.min(progress * 0.25, 20)}%`,
-          background: `linear-gradient(to right, ${
-            progress > 80 ? "rgba(239,68,68,0.25)" : "rgba(59,130,246,0.15)"
-          }, transparent)`,
+          width: `${Math.min(progress * 0.3, 25)}%`,
+          background: `linear-gradient(to right, rgba(30,58,95,${Math.min(0.2 + progress * 0.005, 0.7)}), transparent)`,
         }}
       />
-      {/* Right bar */}
+      {/* Right */}
       <div
         className="absolute top-0 bottom-0 right-0 transition-all duration-1000"
         style={{
-          width: `${Math.min(progress * 0.25, 20)}%`,
-          background: `linear-gradient(to left, ${
-            progress > 80 ? "rgba(239,68,68,0.25)" : "rgba(59,130,246,0.15)"
-          }, transparent)`,
+          width: `${Math.min(progress * 0.3, 25)}%`,
+          background: `linear-gradient(to left, rgba(30,58,95,${Math.min(0.2 + progress * 0.005, 0.7)}), transparent)`,
         }}
       />
+      {/* Pulsing center glow - intensifies with progress */}
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      >
+        <div
+          style={{
+            width: `${600 - progress * 3}px`,
+            height: `${600 - progress * 3}px`,
+            borderRadius: "50%",
+            background: `radial-gradient(circle, rgba(59,130,246,${0.05 + progress * 0.003}) 0%, transparent 70%)`,
+            animation: "countdown-pulse 2.5s ease-in-out infinite",
+          }}
+        />
+      </div>
+
+      <style jsx>{`
+        @keyframes countdown-pulse {
+          0%, 100% { transform: scale(0.95); opacity: 0.7; }
+          50% { transform: scale(1.05); opacity: 1; }
+        }
+      `}</style>
 
       {/* Main countdown - center */}
       <div className="flex flex-col items-center justify-center z-10">
         {finished ? (
           <div className="text-center px-4">
-            <div className="text-green-400 text-3xl sm:text-4xl md:text-5xl font-bold">
+            <div className="text-blue-300 text-3xl sm:text-4xl md:text-5xl font-bold">
               今日の制限時間は終了！
             </div>
-            <div className="text-green-300/70 text-xl sm:text-2xl mt-3">
+            <div className="text-blue-200/70 text-xl sm:text-2xl mt-3">
               おつかれさま！
             </div>
           </div>
@@ -214,16 +225,15 @@ export default function StudyCountdownPage() {
               style={{
                 fontSize: "clamp(3.5rem, 12vw, 7rem)",
                 lineHeight: 1.1,
-                color: progress > 80 ? "#fca5a5" : "#ffffff",
-                textShadow: progress > 80 ? "0 0 30px rgba(239,68,68,0.5)" : "none",
-                transition: "color 2s, text-shadow 2s",
+                textShadow: `0 0 ${20 + progress * 0.5}px rgba(59,130,246,${0.2 + progress * 0.005})`,
+                transition: "text-shadow 2s",
               }}
             >
               {text}
             </div>
             {progress > 80 && (
-              <div className="text-red-400/80 text-lg sm:text-xl font-bold mt-4 animate-pulse">
-                急げ！！時間がない！！
+              <div className="text-blue-300 text-lg sm:text-xl font-bold mt-4 animate-pulse">
+                残りわずか...集中しろ！
               </div>
             )}
           </div>
