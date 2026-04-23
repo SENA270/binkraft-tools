@@ -43,6 +43,27 @@ const tools = [
     emoji: "",
     color: "from-blue-500 to-cyan-500",
   },
+  {
+    href: "/study-motivate",
+    title: "勉強応援メッセージ",
+    description: "諦めそうになったらこれを開け。手を抜くな、自分に嘘をつくな",
+    emoji: "🔥",
+    color: "from-blue-600 to-indigo-700",
+  },
+  {
+    href: "/study-timer",
+    title: "ポモドーロタイマー",
+    description: "25分集中→5分休憩。学習時間を記録して試験日までカウントダウン",
+    emoji: "⏱",
+    color: "from-blue-500 to-blue-700",
+  },
+  {
+    href: "/study-clock",
+    title: "勉強用時計",
+    description: "フルスクリーン時計+試験までのカウントダウン。時間を意識しろ",
+    emoji: "🕐",
+    color: "from-slate-700 to-blue-900",
+  },
 ];
 
 const jsonLd = {
