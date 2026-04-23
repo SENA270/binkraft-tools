@@ -71,6 +71,20 @@ const tools = [
     emoji: "👹",
     color: "from-red-600 to-red-800",
   },
+  {
+    href: "/study-countdown",
+    title: "今日のカウントダウン",
+    description: "制限時間を設定して集中。残り時間をリアルタイム表示",
+    emoji: "⏳",
+    color: "from-blue-700 to-indigo-800",
+  },
+  {
+    href: "/study-goal",
+    title: "今日の目標ボード",
+    description: "目標を大きく表示。逃げるな、やり切れ",
+    emoji: "🎯",
+    color: "from-blue-800 to-slate-900",
+  },
 ];
 
 const jsonLd = {
