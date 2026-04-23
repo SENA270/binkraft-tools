@@ -125,11 +125,6 @@ export default function StudyCountdownPage() {
 
   const { text, finished, progress } = getCountdownData();
 
-  // SVG circle progress
-  const radius = 140;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative px-4"
@@ -148,64 +143,91 @@ export default function StudyCountdownPage() {
         />
       </div>
 
-      {/* Main countdown */}
-      <div className="flex flex-col items-center justify-center">
-        {/* Circular progress */}
-        <div className="relative flex items-center justify-center">
-          <svg
-            width="320"
-            height="320"
-            viewBox="0 0 320 320"
-            className="w-[280px] h-[280px] sm:w-[320px] sm:h-[320px] md:w-[400px] md:h-[400px]"
-          >
-            {/* Background circle */}
-            <circle
-              cx="160"
-              cy="160"
-              r={radius}
-              fill="none"
-              stroke="rgba(255,255,255,0.08)"
-              strokeWidth="8"
-            />
-            {/* Progress circle */}
-            <circle
-              cx="160"
-              cy="160"
-              r={radius}
-              fill="none"
-              stroke={finished ? "#22c55e" : "#3b82f6"}
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              transform="rotate(-90 160 160)"
-              className="transition-all duration-1000 ease-linear"
-            />
-          </svg>
+      {/* Closing-in walls */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-linear"
+        style={{
+          boxShadow: `inset 0 0 ${Math.round(progress * 2)}px ${Math.round(progress * 1.5)}px ${
+            finished ? "rgba(34,197,94,0.4)" : progress > 80 ? "rgba(239,68,68,0.6)" : progress > 50 ? "rgba(251,191,36,0.4)" : "rgba(59,130,246,0.3)"
+          }`,
+        }}
+      />
+      {/* Top bar */}
+      <div
+        className="absolute top-0 left-0 right-0 transition-all duration-1000"
+        style={{
+          height: `${Math.min(progress * 0.35, 30)}%`,
+          background: `linear-gradient(to bottom, ${
+            progress > 80 ? "rgba(239,68,68,0.3)" : "rgba(59,130,246,0.2)"
+          }, transparent)`,
+        }}
+      />
+      {/* Bottom bar */}
+      <div
+        className="absolute bottom-0 left-0 right-0 transition-all duration-1000"
+        style={{
+          height: `${Math.min(progress * 0.35, 30)}%`,
+          background: `linear-gradient(to top, ${
+            progress > 80 ? "rgba(239,68,68,0.3)" : "rgba(59,130,246,0.2)"
+          }, transparent)`,
+        }}
+      />
+      {/* Left bar */}
+      <div
+        className="absolute top-0 bottom-0 left-0 transition-all duration-1000"
+        style={{
+          width: `${Math.min(progress * 0.25, 20)}%`,
+          background: `linear-gradient(to right, ${
+            progress > 80 ? "rgba(239,68,68,0.25)" : "rgba(59,130,246,0.15)"
+          }, transparent)`,
+        }}
+      />
+      {/* Right bar */}
+      <div
+        className="absolute top-0 bottom-0 right-0 transition-all duration-1000"
+        style={{
+          width: `${Math.min(progress * 0.25, 20)}%`,
+          background: `linear-gradient(to left, ${
+            progress > 80 ? "rgba(239,68,68,0.25)" : "rgba(59,130,246,0.15)"
+          }, transparent)`,
+        }}
+      />
 
-          {/* Center text */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {finished ? (
-              <div className="text-center px-4">
-                <div className="text-green-400 text-xl sm:text-2xl md:text-3xl font-bold">
-                  今日の制限時間は終了！
-                </div>
-                <div className="text-green-300/70 text-lg sm:text-xl mt-2">
-                  おつかれさま！
-                </div>
-              </div>
-            ) : (
-              <div className="text-center">
-                <div className="text-blue-300/60 text-sm sm:text-base mb-1">
-                  {targetTime}まであと
-                </div>
-                <div className="font-mono text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-wider">
-                  {text}
-                </div>
+      {/* Main countdown - center */}
+      <div className="flex flex-col items-center justify-center z-10">
+        {finished ? (
+          <div className="text-center px-4">
+            <div className="text-green-400 text-3xl sm:text-4xl md:text-5xl font-bold">
+              今日の制限時間は終了！
+            </div>
+            <div className="text-green-300/70 text-xl sm:text-2xl mt-3">
+              おつかれさま！
+            </div>
+          </div>
+        ) : (
+          <div className="text-center">
+            <div className="text-blue-300/60 text-lg sm:text-xl mb-2">
+              {targetTime}まであと
+            </div>
+            <div
+              className="font-mono font-bold text-white tracking-wider"
+              style={{
+                fontSize: "clamp(3.5rem, 12vw, 7rem)",
+                lineHeight: 1.1,
+                color: progress > 80 ? "#fca5a5" : "#ffffff",
+                textShadow: progress > 80 ? "0 0 30px rgba(239,68,68,0.5)" : "none",
+                transition: "color 2s, text-shadow 2s",
+              }}
+            >
+              {text}
+            </div>
+            {progress > 80 && (
+              <div className="text-red-400/80 text-lg sm:text-xl font-bold mt-4 animate-pulse">
+                急げ！！時間がない！！
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Exam countdown */}
