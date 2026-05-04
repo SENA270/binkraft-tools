@@ -18,27 +18,169 @@ const TOTAL_SIXTEENTHS = BARS * SIXTEENTHS_PER_BAR;
 
 const NOTE_VALUES = [16, 12, 8, 6, 4, 3, 2, 1] as const;
 
-const NOTE_LABELS: Record<number, { symbol: string; name: string; xml: string }> = {
-  16: { symbol: "𝅝", name: "全", xml: "whole" },
-  12: { symbol: "𝅗𝅥.", name: "付点2分", xml: "half." },
-  8: { symbol: "𝅗𝅥", name: "2分", xml: "half" },
-  6: { symbol: "♩.", name: "付点4分", xml: "quarter." },
-  4: { symbol: "♩", name: "4分", xml: "quarter" },
-  3: { symbol: "♪.", name: "付点8分", xml: "eighth." },
-  2: { symbol: "♪", name: "8分", xml: "eighth" },
-  1: { symbol: "𝅘𝅥𝅯", name: "16分", xml: "16th" },
+const NOTE_NAME: Record<number, string> = {
+  16: "全",
+  12: "付点2分",
+  8: "2分",
+  6: "付点4分",
+  4: "4分",
+  3: "付点8分",
+  2: "8分",
+  1: "16分",
 };
 
-const REST_LABELS: Record<number, { symbol: string; name: string }> = {
-  16: { symbol: "𝄻", name: "全休" },
-  12: { symbol: "𝄼.", name: "付点2分休" },
-  8: { symbol: "𝄼", name: "2分休" },
-  6: { symbol: "𝄽.", name: "付点4分休" },
-  4: { symbol: "𝄽", name: "4分休" },
-  3: { symbol: "𝄾.", name: "付点8分休" },
-  2: { symbol: "𝄾", name: "8分休" },
-  1: { symbol: "𝄿", name: "16分休" },
+const REST_NAME: Record<number, string> = {
+  16: "全休",
+  12: "付点2分休",
+  8: "2分休",
+  6: "付点4分休",
+  4: "4分休",
+  3: "付点8分休",
+  2: "8分休",
+  1: "16分休",
 };
+
+function NoteGlyph({ length }: { length: number }) {
+  const dotted = length === 12 || length === 6 || length === 3;
+  const base = length === 12 ? 8 : length === 6 ? 4 : length === 3 ? 2 : length;
+  const isHollow = base === 16 || base === 8;
+  const noStem = base === 16;
+  let flags = 0;
+  if (base === 2) flags = 1;
+  if (base === 1) flags = 2;
+
+  return (
+    <svg viewBox="0 0 28 40" className="h-10 w-7" aria-hidden>
+      {isHollow ? (
+        <ellipse
+          cx="7"
+          cy="32"
+          rx="5"
+          ry="3.5"
+          fill="white"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+      ) : (
+        <ellipse cx="7" cy="32" rx="5" ry="3.5" fill="currentColor" />
+      )}
+      {!noStem && (
+        <line
+          x1="12"
+          y1="32"
+          x2="12"
+          y2="6"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      )}
+      {flags >= 1 && (
+        <path
+          d="M 12 6 Q 22 10 20 18"
+          stroke="currentColor"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+        />
+      )}
+      {flags >= 2 && (
+        <path
+          d="M 12 13 Q 22 17 20 25"
+          stroke="currentColor"
+          strokeWidth="2"
+          fill="none"
+          strokeLinecap="round"
+        />
+      )}
+      {dotted && <circle cx="16" cy="32" r="1.6" fill="currentColor" />}
+    </svg>
+  );
+}
+
+function RestGlyph({ length }: { length: number }) {
+  const dotted = length === 12 || length === 6 || length === 3;
+  const base = length === 12 ? 8 : length === 6 ? 4 : length === 3 ? 2 : length;
+
+  return (
+    <svg viewBox="0 0 28 40" className="h-10 w-7" aria-hidden>
+      {base === 16 && (
+        <rect x="7" y="16" width="14" height="5" fill="currentColor" />
+      )}
+      {base === 8 && (
+        <rect x="7" y="22" width="14" height="5" fill="currentColor" />
+      )}
+      {base === 4 && (
+        <path
+          d="M 9 8 L 17 14 L 9 22 L 17 28 L 11 34 L 18 36"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {base === 2 && (
+        <>
+          <line
+            x1="8"
+            y1="32"
+            x2="18"
+            y2="10"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <ellipse
+            cx="16"
+            cy="14"
+            rx="3"
+            ry="2.5"
+            fill="currentColor"
+            transform="rotate(-25 16 14)"
+          />
+        </>
+      )}
+      {base === 1 && (
+        <>
+          <line
+            x1="7"
+            y1="34"
+            x2="20"
+            y2="6"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <ellipse
+            cx="18"
+            cy="10"
+            rx="3"
+            ry="2.5"
+            fill="currentColor"
+            transform="rotate(-25 18 10)"
+          />
+          <ellipse
+            cx="12"
+            cy="22"
+            rx="3"
+            ry="2.5"
+            fill="currentColor"
+            transform="rotate(-25 12 22)"
+          />
+        </>
+      )}
+      {dotted && (
+        <circle
+          cx={base >= 8 ? 24 : 22}
+          cy={base >= 8 ? 24 : 16}
+          r="1.6"
+          fill="currentColor"
+        />
+      )}
+    </svg>
+  );
+}
 
 function scheduleClick(audioCtx: AudioContext, time: number, isDownbeat: boolean) {
   const osc = audioCtx.createOscillator();
@@ -51,6 +193,24 @@ function scheduleClick(audioCtx: AudioContext, time: number, isDownbeat: boolean
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
   osc.start(time);
   osc.stop(time + 0.07);
+}
+
+function scheduleNote(audioCtx: AudioContext, time: number, duration: number) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.type = "sine";
+  osc.frequency.value = 600;
+  const attack = 0.008;
+  const release = 0.03;
+  const sustainEnd = Math.max(attack, duration - release);
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(0.2, time + attack);
+  gain.gain.setValueAtTime(0.2, time + sustainEnd);
+  gain.gain.linearRampToValueAtTime(0, time + duration);
+  osc.start(time);
+  osc.stop(time + duration + 0.05);
 }
 
 function quantize(events: RawEvent[], recordStart: number, secPer16th: number): boolean[] {
@@ -99,6 +259,7 @@ export default function VocalRhythmPage() {
   const [bars, setBars] = useState<BarTokens[]>([]);
   const [currentBeat, setCurrentBeat] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const eventsRef = useRef<RawEvent[]>([]);
@@ -108,7 +269,10 @@ export default function VocalRhythmPage() {
   const finishTimerRef = useRef<number | null>(null);
   const isPressedRef = useRef(false);
 
-  const cleanup = useCallback(() => {
+  const playbackCtxRef = useRef<AudioContext | null>(null);
+  const playbackTimerRef = useRef<number | null>(null);
+
+  const cleanupRecording = useCallback(() => {
     beatTimersRef.current.forEach((id) => clearTimeout(id));
     beatTimersRef.current = [];
     if (finishTimerRef.current !== null) {
@@ -122,8 +286,25 @@ export default function VocalRhythmPage() {
     isPressedRef.current = false;
   }, []);
 
+  const stopPlayback = useCallback(() => {
+    if (playbackTimerRef.current !== null) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
+    if (playbackCtxRef.current) {
+      playbackCtxRef.current.close().catch(() => {});
+      playbackCtxRef.current = null;
+    }
+    setIsPlaying(false);
+  }, []);
+
+  const cleanupAll = useCallback(() => {
+    cleanupRecording();
+    stopPlayback();
+  }, [cleanupRecording, stopPlayback]);
+
   const start = useCallback(() => {
-    cleanup();
+    cleanupAll();
     const Ctor =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -172,22 +353,58 @@ export default function VocalRhythmPage() {
       const result = slotsToTokens(slots);
       setBars(result);
       setPhase("result");
-      cleanup();
+      cleanupRecording();
     }, finishDelayMs);
-  }, [bpm, cleanup]);
+  }, [bpm, cleanupAll, cleanupRecording]);
 
   const cancel = useCallback(() => {
-    cleanup();
+    cleanupAll();
     setPhase("idle");
     setCurrentBeat(0);
-  }, [cleanup]);
+  }, [cleanupAll]);
 
   const reset = useCallback(() => {
-    cleanup();
+    cleanupAll();
     setPhase("idle");
     setCurrentBeat(0);
     setBars([]);
-  }, [cleanup]);
+  }, [cleanupAll]);
+
+  const playback = useCallback(() => {
+    stopPlayback();
+    const Ctor =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctor();
+    playbackCtxRef.current = ctx;
+    setIsPlaying(true);
+
+    const startAt = ctx.currentTime + 0.1;
+    const secPerBeat = 60 / bpm;
+    const secPer16th = secPerBeat / 4;
+
+    for (let i = 0; i < BARS * BEATS_PER_BAR; i++) {
+      scheduleClick(ctx, startAt + i * secPerBeat, i % BEATS_PER_BAR === 0);
+    }
+
+    bars.forEach((bar, barIdx) => {
+      let cursor = barIdx * SIXTEENTHS_PER_BAR;
+      bar.tokens.forEach((t) => {
+        if (t.kind === "note") {
+          const noteStart = startAt + cursor * secPer16th;
+          const duration = t.length * secPer16th;
+          scheduleNote(ctx, noteStart, duration);
+        }
+        cursor += t.length;
+      });
+    });
+
+    const totalSec = BARS * BEATS_PER_BAR * secPerBeat;
+    playbackTimerRef.current = window.setTimeout(
+      () => stopPlayback(),
+      (totalSec + 0.5) * 1000,
+    );
+  }, [bars, bpm, stopPlayback]);
 
   useEffect(() => {
     if (phase !== "countdown" && phase !== "recording") return;
@@ -226,14 +443,14 @@ export default function VocalRhythmPage() {
   }, [phase]);
 
   useEffect(() => {
-    return () => cleanup();
-  }, [cleanup]);
+    return () => cleanupAll();
+  }, [cleanupAll]);
 
   const noteListText = bars
     .map((b) => {
       const items = b.tokens.map((t) => {
-        const map = t.kind === "note" ? NOTE_LABELS : REST_LABELS;
-        return map[t.length].name;
+        const map = t.kind === "note" ? NOTE_NAME : REST_NAME;
+        return map[t.length];
       });
       return `${b.bar}小節目: ${items.length ? items.join(" / ") : "（無音）"}`;
     })
@@ -350,43 +567,74 @@ export default function VocalRhythmPage() {
       {phase === "result" && (
         <section className="mt-10 space-y-6">
           <div className="rounded-2xl bg-white border border-zinc-200 p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-zinc-900">リズム譜</h2>
-            <div className="mt-4 grid gap-3">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-lg font-bold text-zinc-900">リズム譜</h2>
+              <button
+                onClick={isPlaying ? stopPlayback : playback}
+                className={`rounded-xl px-4 py-2 text-sm font-bold text-white transition ${
+                  isPlaying
+                    ? "bg-zinc-700 hover:bg-zinc-800"
+                    : "bg-rose-500 hover:bg-rose-600"
+                }`}
+              >
+                {isPlaying ? "■ 停止" : "▶ 再生"}
+              </button>
+            </div>
+            <div className="mt-4 grid gap-2">
               {bars.map((b) => (
                 <div
                   key={b.bar}
-                  className="flex items-start gap-3 rounded-xl bg-zinc-50 px-3 py-3 border border-zinc-200"
+                  className="flex items-center gap-3 rounded-xl bg-zinc-50 px-3 py-3 border border-zinc-200"
                 >
-                  <span className="shrink-0 text-xs font-bold text-zinc-400 w-8 pt-2">
+                  <span className="shrink-0 text-xs font-bold text-zinc-400 w-6 text-center">
                     {b.bar}
                   </span>
-                  <div className="flex flex-wrap items-end gap-1.5">
-                    {b.tokens.length === 0 && (
-                      <span className="text-xs text-zinc-400">（無音）</span>
+                  <div
+                    className="flex-1 grid gap-px"
+                    style={{
+                      gridTemplateColumns: `repeat(${SIXTEENTHS_PER_BAR}, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {b.tokens.length === 0 ? (
+                      <div
+                        style={{ gridColumn: `span ${SIXTEENTHS_PER_BAR}` }}
+                        className="flex items-center justify-center rounded bg-zinc-100 py-3 text-xs text-zinc-400"
+                      >
+                        （無音）
+                      </div>
+                    ) : (
+                      b.tokens.map((t, idx) => {
+                        const name =
+                          t.kind === "note" ? NOTE_NAME[t.length] : REST_NAME[t.length];
+                        return (
+                          <div
+                            key={idx}
+                            style={{ gridColumn: `span ${t.length}` }}
+                            className={`flex flex-col items-center justify-end rounded px-1 py-1 ${
+                              t.kind === "note"
+                                ? "bg-rose-100 text-rose-900 border border-rose-200"
+                                : "bg-zinc-200 text-zinc-700 border border-zinc-300"
+                            }`}
+                          >
+                            {t.kind === "note" ? (
+                              <NoteGlyph length={t.length} />
+                            ) : (
+                              <RestGlyph length={t.length} />
+                            )}
+                            <span className="text-[9px] mt-1 leading-none whitespace-nowrap">
+                              {name}
+                            </span>
+                          </div>
+                        );
+                      })
                     )}
-                    {b.tokens.map((t, idx) => {
-                      const map = t.kind === "note" ? NOTE_LABELS : REST_LABELS;
-                      const lbl = map[t.length];
-                      return (
-                        <span
-                          key={idx}
-                          className={`inline-flex flex-col items-center justify-end rounded-lg px-2 py-1.5 min-w-[48px] ${
-                            t.kind === "note"
-                              ? "bg-rose-100 text-rose-900 border border-rose-200"
-                              : "bg-zinc-200 text-zinc-700 border border-zinc-300"
-                          }`}
-                        >
-                          <span className="text-2xl leading-none">{lbl.symbol}</span>
-                          <span className="text-[10px] mt-1 leading-none">
-                            {lbl.name}
-                          </span>
-                        </span>
-                      );
-                    })}
                   </div>
                 </div>
               ))}
             </div>
+            <p className="mt-3 text-xs text-zinc-500">
+              縦線=拍。各小節は同じ幅で表示しています。
+            </p>
           </div>
 
           <div className="rounded-2xl bg-white border border-zinc-200 p-6 shadow-sm">
