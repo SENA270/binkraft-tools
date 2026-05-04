@@ -258,7 +258,6 @@ export default function VocalRhythmPage() {
   const [bpm, setBpm] = useState(120);
   const [bars, setBars] = useState<BarTokens[]>([]);
   const [currentBeat, setCurrentBeat] = useState(0);
-  const [copied, setCopied] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -446,24 +445,6 @@ export default function VocalRhythmPage() {
     return () => cleanupAll();
   }, [cleanupAll]);
 
-  const noteListText = bars
-    .map((b) => {
-      const items = b.tokens.map((t) => {
-        const map = t.kind === "note" ? NOTE_NAME : REST_NAME;
-        return map[t.length];
-      });
-      return `${b.bar}小節目: ${items.length ? items.join(" / ") : "（無音）"}`;
-    })
-    .join("\n");
-
-  const copyText = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(noteListText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {}
-  }, [noteListText]);
-
   const beatInBar = currentBeat % BEATS_PER_BAR;
   const barIndex = Math.floor(currentBeat / BEATS_PER_BAR);
 
@@ -634,26 +615,6 @@ export default function VocalRhythmPage() {
             </div>
             <p className="mt-3 text-xs text-zinc-500">
               縦線=拍。各小節は同じ幅で表示しています。
-            </p>
-          </div>
-
-          <div className="rounded-2xl bg-white border border-zinc-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-lg font-bold text-zinc-900">
-                音符列（MuseScore 転記用）
-              </h2>
-              <button
-                onClick={copyText}
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-700"
-              >
-                {copied ? "✓ コピー済" : "コピー"}
-              </button>
-            </div>
-            <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-zinc-50 p-4 text-sm text-zinc-800 border border-zinc-200 font-mono">
-              {noteListText}
-            </pre>
-            <p className="mt-3 text-xs text-zinc-500">
-              MuseScore で同じリズムを上から順に入力してください。音程は別途お好みで。
             </p>
           </div>
 
