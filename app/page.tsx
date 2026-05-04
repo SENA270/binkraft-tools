@@ -44,6 +44,13 @@ const tools = [
     color: "from-blue-500 to-cyan-500",
   },
   {
+    href: "/vocal-rhythm",
+    title: "ボーカルリズム入力",
+    description: "歌いたいリズムをスペースキーで打ち込むだけ。MuseScore転記用の音符列が出る",
+    emoji: "🎤",
+    color: "from-rose-500 to-pink-600",
+  },
+  {
     href: "/study-motivate",
     title: "勉強応援メッセージ",
     description: "諦めそうになったらこれを開け。手を抜くな、自分に嘘をつくな",

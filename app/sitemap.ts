@@ -47,6 +47,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${BASE_URL}/vocal-rhythm`,
+      lastModified: "2026-05-05",
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE_URL}/blog`,
       lastModified: "2026-04-16",
       changeFrequency: "weekly",
