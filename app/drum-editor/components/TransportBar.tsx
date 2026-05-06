@@ -20,6 +20,13 @@ interface TransportBarProps {
   onRedo: () => void;
   measures: number;
   onMeasuresChange: (m: number) => void;
+  backtrackName: string;
+  backtrackVolume: number;
+  backtrackMuted: boolean;
+  onBacktrackUpload: (file: File) => void;
+  onBacktrackVolumeChange: (v: number) => void;
+  onBacktrackMuteToggle: () => void;
+  onBacktrackRemove: () => void;
 }
 
 export default function TransportBar({
@@ -40,11 +47,20 @@ export default function TransportBar({
   onRedo,
   measures,
   onMeasuresChange,
+  backtrackName,
+  backtrackVolume,
+  backtrackMuted,
+  onBacktrackUpload,
+  onBacktrackVolumeChange,
+  onBacktrackMuteToggle,
+  onBacktrackRemove,
 }: TransportBarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const backtrackInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 bg-zinc-800 border-b border-zinc-700 px-4 py-2 text-sm">
+    <div className="bg-zinc-800 border-b border-zinc-700 px-4 py-2 text-sm space-y-2">
+    <div className="flex flex-wrap items-center gap-2">
       {/* Play / Stop */}
       <button
         onClick={isPlaying ? onStop : onPlay}
@@ -159,6 +175,75 @@ export default function TransportBar({
       >
         MIDIダウンロード
       </button>
+    </div>
+
+    {/* Backtrack row */}
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        ref={backtrackInputRef}
+        type="file"
+        accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onBacktrackUpload(f);
+          e.target.value = "";
+        }}
+      />
+      <button
+        onClick={() => backtrackInputRef.current?.click()}
+        className="px-2.5 py-1.5 rounded text-xs bg-zinc-700 border border-zinc-600 text-zinc-300 hover:bg-zinc-600"
+      >
+        バックトラック読込
+      </button>
+
+      {backtrackName && (
+        <>
+          <span className="text-xs text-amber-400 truncate max-w-[160px]" title={backtrackName}>
+            {backtrackName}
+          </span>
+
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-zinc-500">Vol</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={backtrackVolume}
+              onChange={(e) => onBacktrackVolumeChange(Number(e.target.value))}
+              className="w-20 h-1 accent-amber-500"
+            />
+            <span className="text-[10px] text-zinc-500 w-6 text-right">
+              {Math.round(backtrackVolume * 100)}
+            </span>
+          </div>
+
+          <button
+            onClick={onBacktrackMuteToggle}
+            className={`px-2 py-1 rounded text-xs font-medium border ${
+              backtrackMuted
+                ? "bg-red-700 border-red-600 text-white"
+                : "bg-zinc-700 border-zinc-600 text-zinc-300 hover:bg-zinc-600"
+            }`}
+          >
+            {backtrackMuted ? "Muted" : "Mute"}
+          </button>
+
+          <button
+            onClick={onBacktrackRemove}
+            className="px-1.5 py-1 rounded text-xs bg-zinc-700 border border-zinc-600 text-zinc-400 hover:bg-red-700 hover:text-white hover:border-red-600"
+            title="バックトラックを削除"
+          >
+            X
+          </button>
+
+          <span className="text-[10px] text-zinc-600 hidden sm:inline">
+            ※ BPMはグリッドと一致させてください
+          </span>
+        </>
+      )}
+    </div>
     </div>
   );
 }

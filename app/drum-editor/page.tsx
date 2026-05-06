@@ -56,6 +56,14 @@ export default function DrumEditorPage() {
   const [recording, setRecording] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // Backtrack state
+  const [backtrackBuffer, setBacktrackBuffer] = useState<AudioBuffer | null>(null);
+  const [backtrackVolume, setBacktrackVolume] = useState(0.5);
+  const [backtrackMuted, setBacktrackMuted] = useState(false);
+  const [backtrackName, setBacktrackName] = useState("");
+  const backtrackSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const backtrackGainRef = useRef<GainNode | null>(null);
+
   // Undo/redo stacks
   const undoStack = useRef<Snapshot[]>([]);
   const redoStack = useRef<Snapshot[]>([]);
@@ -176,16 +184,6 @@ export default function DrumEditorPage() {
     setVelocityPopup(null);
   }, [velocityPopup, pushUndoAndRender]);
 
-  // Playback
-  const stopPlayback = useCallback(() => {
-    if (playbackRef.current) {
-      cancelAnimationFrame(playbackRef.current.animId);
-      playbackRef.current = null;
-    }
-    setIsPlaying(false);
-    setPlayheadTick(-1);
-  }, []);
-
   const stateRef = useRef(state);
   stateRef.current = state;
   const loopRef = useRef(loop);
@@ -196,6 +194,77 @@ export default function DrumEditorPage() {
   isPlayingRef.current = isPlaying;
   const playheadTickRef = useRef(playheadTick);
   playheadTickRef.current = playheadTick;
+  const backtrackBufferRef = useRef(backtrackBuffer);
+  backtrackBufferRef.current = backtrackBuffer;
+  const backtrackVolumeRef = useRef(backtrackVolume);
+  backtrackVolumeRef.current = backtrackVolume;
+  const backtrackMutedRef = useRef(backtrackMuted);
+  backtrackMutedRef.current = backtrackMuted;
+
+  // Backtrack helpers
+  const stopBacktrack = useCallback(() => {
+    if (backtrackSourceRef.current) {
+      try { backtrackSourceRef.current.stop(); } catch { /* already stopped */ }
+      backtrackSourceRef.current.disconnect();
+      backtrackSourceRef.current = null;
+    }
+  }, []);
+
+  const startBacktrack = useCallback((offsetTick: number, totalTicks: number) => {
+    const buf = backtrackBufferRef.current;
+    if (!buf) return;
+    stopBacktrack();
+    const ctx = getContext();
+    const source = ctx.createBufferSource();
+    source.buffer = buf;
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = backtrackMutedRef.current ? 0 : backtrackVolumeRef.current;
+    backtrackGainRef.current = gainNode;
+    source.connect(gainNode).connect(ctx.destination);
+    const offset = (offsetTick / totalTicks) * buf.duration;
+    source.start(0, offset);
+    backtrackSourceRef.current = source;
+  }, [stopBacktrack]);
+
+  // Update backtrack gain in real-time
+  useEffect(() => {
+    if (backtrackGainRef.current) {
+      backtrackGainRef.current.gain.value = backtrackMuted ? 0 : backtrackVolume;
+    }
+  }, [backtrackVolume, backtrackMuted]);
+
+  // Upload backtrack audio file
+  const handleBacktrackUpload = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const ctx = getContext();
+        const decoded = await ctx.decodeAudioData(reader.result as ArrayBuffer);
+        setBacktrackBuffer(decoded);
+        setBacktrackName(file.name);
+      } catch {
+        alert("音声ファイルの読み込みに失敗しました");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  const handleBacktrackRemove = useCallback(() => {
+    stopBacktrack();
+    setBacktrackBuffer(null);
+    setBacktrackName("");
+  }, [stopBacktrack]);
+
+  // Playback
+  const stopPlayback = useCallback(() => {
+    if (playbackRef.current) {
+      cancelAnimationFrame(playbackRef.current.animId);
+      playbackRef.current = null;
+    }
+    stopBacktrack();
+    setIsPlaying(false);
+    setPlayheadTick(-1);
+  }, [stopBacktrack]);
 
   const startPlayback = useCallback(() => {
     // Ensure audio context is running
@@ -214,6 +283,9 @@ export default function DrumEditorPage() {
     const startTime = performance.now();
     const startTick = 0;
 
+    // Start backtrack audio in sync
+    startBacktrack(startTick, totalCells);
+
     function tick() {
       const elapsed = (performance.now() - startTime) / 1000;
       const currentTick = startTick + elapsed / secondsPerCell;
@@ -229,6 +301,8 @@ export default function DrumEditorPage() {
             startTick: 0,
           };
           setPlayheadTick(0);
+          // Restart backtrack from beginning
+          startBacktrack(0, totalCells);
           playbackRef.current.animId = requestAnimationFrame(tick);
           return;
         }
@@ -260,7 +334,7 @@ export default function DrumEditorPage() {
       startTime,
       startTick,
     };
-  }, [stopPlayback]);
+  }, [stopPlayback, startBacktrack]);
 
   // Keyboard shortcuts + drum key input
   useEffect(() => {
@@ -341,6 +415,10 @@ export default function DrumEditorPage() {
     return () => {
       if (playbackRef.current) {
         cancelAnimationFrame(playbackRef.current.animId);
+      }
+      if (backtrackSourceRef.current) {
+        try { backtrackSourceRef.current.stop(); } catch { /* noop */ }
+        backtrackSourceRef.current.disconnect();
       }
     };
   }, []);
@@ -451,6 +529,13 @@ export default function DrumEditorPage() {
           pushUndoAndRender();
           setState((p) => ({ ...p, measures: m }));
         }}
+        backtrackName={backtrackName}
+        backtrackVolume={backtrackVolume}
+        backtrackMuted={backtrackMuted}
+        onBacktrackUpload={handleBacktrackUpload}
+        onBacktrackVolumeChange={setBacktrackVolume}
+        onBacktrackMuteToggle={() => setBacktrackMuted((m) => !m)}
+        onBacktrackRemove={handleBacktrackRemove}
       />
 
       {/* Grid */}
