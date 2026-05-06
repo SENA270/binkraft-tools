@@ -44,6 +44,13 @@ const tools = [
     color: "from-blue-500 to-cyan-500",
   },
   {
+    href: "/drum-editor",
+    title: "ドラムMIDIエディタ",
+    description: "MIDIファイルを読み込んでドラムパターンをブラウザ上で編集・再生・エクスポート",
+    emoji: "🥁",
+    color: "from-amber-500 to-yellow-600",
+  },
+  {
     href: "/vocal-rhythm",
     title: "ボーカルリズム入力",
     description: "歌いたいリズムをスペースキーで打ち込むだけ。MuseScore転記用の音符列が出る",
