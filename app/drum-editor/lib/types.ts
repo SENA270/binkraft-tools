@@ -201,6 +201,40 @@ export interface Snapshot {
   measures: number;
 }
 
+/** Keyboard key to GM drum note number mapping */
+export const KEYBOARD_MAP: Record<string, number> = {
+  // Top row (cymbals)
+  q: 49, // Crash Cymbal 1
+  w: 51, // Ride Cymbal 1
+  e: 46, // Open Hi-Hat
+  r: 53, // Ride Bell
+  t: 57, // Crash Cymbal 2
+  y: 55, // Splash Cymbal
+  u: 52, // Chinese Cymbal
+  // Home row (main kit)
+  a: 42, // Closed Hi-Hat
+  s: 38, // Acoustic Snare
+  d: 36, // Bass Drum (Kick)
+  f: 45, // Low Tom
+  g: 47, // Low-Mid Tom
+  h: 50, // High Tom
+  j: 37, // Side Stick
+  k: 39, // Hand Clap
+  // Bottom row (percussion)
+  z: 44, // Pedal Hi-Hat
+  x: 40, // Electric Snare
+  c: 41, // Low Floor Tom
+  v: 43, // High Floor Tom
+  b: 56, // Cowbell
+  n: 54, // Tambourine
+  m: 75, // Claves
+};
+
+/** Reverse lookup: GM note number to keyboard key */
+export const NOTE_TO_KEY: Record<number, string> = Object.fromEntries(
+  Object.entries(KEYBOARD_MAP).map(([key, note]) => [note, key.toUpperCase()])
+);
+
 export const DEFAULT_BPM = 120;
 export const DEFAULT_MEASURES = 4;
 export const DEFAULT_TICKS_PER_BEAT = 4; // 16th note resolution

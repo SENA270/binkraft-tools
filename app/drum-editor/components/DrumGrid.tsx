@@ -7,6 +7,7 @@ import {
   GM_DRUM_MAP,
   getDrumCategory,
   DRUM_CATEGORY_NAMES_JA,
+  NOTE_TO_KEY,
 } from "../lib/types";
 
 interface DrumGridProps {
@@ -178,14 +179,20 @@ export default function DrumGrid({
             );
           }
           const inst = row.note!;
+          const keyHint = NOTE_TO_KEY[inst];
           return (
             <div
               key={inst}
-              className="flex items-center px-2 border-b border-zinc-700/50 text-xs text-zinc-300 truncate"
+              className="flex items-center px-2 border-b border-zinc-700/50 text-xs text-zinc-300 truncate gap-1.5"
               style={{ height: CELL_H }}
               title={GM_DRUM_MAP[inst] || `Note ${inst}`}
             >
-              {GM_DRUM_NAMES_JA[inst] || GM_DRUM_MAP[inst] || `#${inst}`}
+              <span className="truncate">{GM_DRUM_NAMES_JA[inst] || GM_DRUM_MAP[inst] || `#${inst}`}</span>
+              {keyHint && (
+                <span className="shrink-0 text-[9px] text-zinc-500 bg-zinc-700/60 rounded px-1 py-0.5 font-mono leading-none">
+                  {keyHint}
+                </span>
+              )}
             </div>
           );
         })}

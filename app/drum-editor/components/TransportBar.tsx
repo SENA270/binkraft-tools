@@ -6,12 +6,14 @@ interface TransportBarProps {
   isPlaying: boolean;
   bpm: number;
   loop: boolean;
+  recording: boolean;
   canUndo: boolean;
   canRedo: boolean;
   onPlay: () => void;
   onStop: () => void;
   onBpmChange: (bpm: number) => void;
   onLoopToggle: () => void;
+  onToggleRecording: () => void;
   onUpload: (file: File) => void;
   onDownload: () => void;
   onUndo: () => void;
@@ -24,12 +26,14 @@ export default function TransportBar({
   isPlaying,
   bpm,
   loop,
+  recording,
   canUndo,
   canRedo,
   onPlay,
   onStop,
   onBpmChange,
   onLoopToggle,
+  onToggleRecording,
   onUpload,
   onDownload,
   onUndo,
@@ -51,6 +55,18 @@ export default function TransportBar({
         }`}
       >
         {isPlaying ? "Stop" : "Play"}
+      </button>
+
+      {/* REC */}
+      <button
+        onClick={onToggleRecording}
+        className={`px-3 py-1.5 rounded font-bold text-xs ${
+          recording
+            ? "bg-red-600 hover:bg-red-700 text-white animate-pulse"
+            : "bg-zinc-700 hover:bg-zinc-600 text-zinc-400 border border-zinc-600"
+        }`}
+      >
+        REC
       </button>
 
       {/* BPM */}

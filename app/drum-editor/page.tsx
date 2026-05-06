@@ -10,6 +10,7 @@ import {
   DEFAULT_MEASURES,
   DEFAULT_TICKS_PER_BEAT,
   DEFAULT_INSTRUMENTS,
+  KEYBOARD_MAP,
 } from "./lib/types";
 import { parseMidi, writeMidi } from "./lib/midi";
 import { playDrum, getContext } from "./lib/drumSynth";
@@ -52,6 +53,7 @@ export default function DrumEditorPage() {
     x: number;
     y: number;
   } | null>(null);
+  const [recording, setRecording] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Undo/redo stacks
@@ -188,6 +190,12 @@ export default function DrumEditorPage() {
   stateRef.current = state;
   const loopRef = useRef(loop);
   loopRef.current = loop;
+  const recordingRef = useRef(recording);
+  recordingRef.current = recording;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const playheadTickRef = useRef(playheadTick);
+  playheadTickRef.current = playheadTick;
 
   const startPlayback = useCallback(() => {
     // Ensure audio context is running
@@ -254,25 +262,79 @@ export default function DrumEditorPage() {
     };
   }, [stopPlayback]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts + drum key input
   useEffect(() => {
+    const pressedKeys = new Set<string>();
+
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.repeat) return;
 
       if (e.key === " ") {
         e.preventDefault();
         if (isPlaying) stopPlayback();
         else startPlayback();
+        return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         if (e.shiftKey) redoAndRender();
         else undoAndRender();
+        return;
+      }
+
+      // Drum keyboard input
+      const key = e.key.toLowerCase();
+      if (pressedKeys.has(key)) return;
+      pressedKeys.add(key);
+
+      const drumNote = KEYBOARD_MAP[key];
+      if (drumNote == null) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      e.preventDefault();
+
+      // Always play the sound
+      playDrum(drumNote, DEFAULT_VELOCITY);
+
+      // Record into grid if recording + playing
+      if (recordingRef.current && isPlayingRef.current && playheadTickRef.current >= 0) {
+        const gridTick = Math.round(playheadTickRef.current);
+        const s = stateRef.current;
+        const gridCellsPerMeasure = s.timeSignatureNumerator * s.ticksPerBeat;
+        const totalCells = s.measures * gridCellsPerMeasure;
+
+        if (gridTick >= 0 && gridTick < totalCells) {
+          pushUndoAndRender();
+          setState((prev) => {
+            // Don't add duplicate at same position
+            const exists = prev.notes.some(
+              (n) => n.note === drumNote && n.tick === gridTick
+            );
+            if (exists) return prev;
+            return {
+              ...prev,
+              notes: [
+                ...prev.notes,
+                { note: drumNote, tick: gridTick, velocity: DEFAULT_VELOCITY },
+              ],
+            };
+          });
+        }
       }
     }
+
+    function handleKeyUp(e: KeyboardEvent) {
+      pressedKeys.delete(e.key.toLowerCase());
+    }
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPlaying, startPlayback, stopPlayback, undoAndRender, redoAndRender]);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [isPlaying, startPlayback, stopPlayback, undoAndRender, redoAndRender, pushUndoAndRender]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -362,7 +424,7 @@ export default function DrumEditorPage() {
           ドラムMIDIエディタ
         </h1>
         <span className="text-[10px] text-zinc-500 ml-auto hidden sm:inline">
-          スペース=再生/停止 | 左クリック=ノート追加/削除 | 右クリック=ベロシティ
+          スペース=再生/停止 | キーボード=ドラム演奏 | REC+再生中=録音 | 左クリック=ノート追加/削除 | 右クリック=ベロシティ
           | Ctrl+Z=元に戻す
         </span>
       </div>
@@ -372,12 +434,14 @@ export default function DrumEditorPage() {
         isPlaying={isPlaying}
         bpm={state.bpm}
         loop={loop}
+        recording={recording}
         canUndo={undoStack.current.length > 0}
         canRedo={redoStack.current.length > 0}
         onPlay={startPlayback}
         onStop={stopPlayback}
         onBpmChange={(bpm) => setState((p) => ({ ...p, bpm }))}
         onLoopToggle={() => setLoop((l) => !l)}
+        onToggleRecording={() => setRecording((r) => !r)}
         onUpload={handleUpload}
         onDownload={handleDownload}
         onUndo={undoAndRender}
