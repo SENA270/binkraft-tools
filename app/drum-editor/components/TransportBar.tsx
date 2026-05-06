@@ -21,8 +21,11 @@ interface TransportBarProps {
   measures: number;
   onMeasuresChange: (m: number) => void;
   backtrackName: string;
+  backtrackDuration: number;
   backtrackVolume: number;
   backtrackMuted: boolean;
+  bpmDetecting: boolean;
+  bpmDetected: boolean;
   onBacktrackUpload: (file: File) => void;
   onBacktrackVolumeChange: (v: number) => void;
   onBacktrackMuteToggle: () => void;
@@ -48,8 +51,11 @@ export default function TransportBar({
   measures,
   onMeasuresChange,
   backtrackName,
+  backtrackDuration,
   backtrackVolume,
   backtrackMuted,
+  bpmDetecting,
+  bpmDetected,
   onBacktrackUpload,
   onBacktrackVolumeChange,
   onBacktrackMuteToggle,
@@ -88,17 +94,28 @@ export default function TransportBar({
       {/* BPM */}
       <div className="flex items-center gap-1 text-zinc-300">
         <span className="text-xs text-zinc-400">BPM:</span>
-        <input
-          type="number"
-          min={30}
-          max={300}
-          value={bpm}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            if (v >= 30 && v <= 300) onBpmChange(v);
-          }}
-          className="w-14 bg-zinc-700 border border-zinc-600 rounded px-1.5 py-0.5 text-xs text-center text-zinc-200 focus:outline-none focus:border-amber-500"
-        />
+        {bpmDetecting ? (
+          <span className="text-xs text-amber-400 animate-pulse px-1.5">検出中...</span>
+        ) : (
+          <>
+            <input
+              type="number"
+              min={30}
+              max={300}
+              value={bpm}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (v >= 30 && v <= 300) onBpmChange(v);
+              }}
+              className="w-14 bg-zinc-700 border border-zinc-600 rounded px-1.5 py-0.5 text-xs text-center text-zinc-200 focus:outline-none focus:border-amber-500"
+            />
+            {bpmDetected && (
+              <span className="text-[10px] bg-amber-600 text-white px-1 py-0.5 rounded font-medium">
+                検出
+              </span>
+            )}
+          </>
+        )}
       </div>
 
       {/* Measures */}
@@ -199,8 +216,13 @@ export default function TransportBar({
 
       {backtrackName && (
         <>
-          <span className="text-xs text-amber-400 truncate max-w-[160px]" title={backtrackName}>
+          <span className="text-xs text-amber-400 truncate max-w-[200px]" title={backtrackName}>
             {backtrackName}
+            {backtrackDuration > 0 && (
+              <span className="text-zinc-500 ml-1">
+                ({Math.floor(backtrackDuration / 60)}:{String(Math.floor(backtrackDuration % 60)).padStart(2, "0")})
+              </span>
+            )}
           </span>
 
           <div className="flex items-center gap-1">
@@ -239,7 +261,7 @@ export default function TransportBar({
           </button>
 
           <span className="text-[10px] text-zinc-600 hidden sm:inline">
-            ※ BPMはグリッドと一致させてください
+            {bpmDetected ? "※ BPM・小節数を自動設定しました" : "※ BPMはグリッドと一致させてください"}
           </span>
         </>
       )}

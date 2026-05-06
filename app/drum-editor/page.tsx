@@ -14,6 +14,7 @@ import {
 } from "./lib/types";
 import { parseMidi, writeMidi } from "./lib/midi";
 import { playDrum, getContext } from "./lib/drumSynth";
+import { detectBpm, calculateMeasures } from "./lib/bpmDetector";
 import TransportBar from "./components/TransportBar";
 import DrumGrid from "./components/DrumGrid";
 import VelocitySlider from "./components/VelocitySlider";
@@ -61,6 +62,9 @@ export default function DrumEditorPage() {
   const [backtrackVolume, setBacktrackVolume] = useState(0.5);
   const [backtrackMuted, setBacktrackMuted] = useState(false);
   const [backtrackName, setBacktrackName] = useState("");
+  const [backtrackDuration, setBacktrackDuration] = useState(0);
+  const [bpmDetecting, setBpmDetecting] = useState(false);
+  const [bpmDetected, setBpmDetected] = useState(false);
   const backtrackSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const backtrackGainRef = useRef<GainNode | null>(null);
 
@@ -233,7 +237,7 @@ export default function DrumEditorPage() {
     }
   }, [backtrackVolume, backtrackMuted]);
 
-  // Upload backtrack audio file
+  // Upload backtrack audio file with BPM detection
   const handleBacktrackUpload = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = async () => {
@@ -242,6 +246,29 @@ export default function DrumEditorPage() {
         const decoded = await ctx.decodeAudioData(reader.result as ArrayBuffer);
         setBacktrackBuffer(decoded);
         setBacktrackName(file.name);
+        setBacktrackDuration(decoded.duration);
+
+        // Run BPM detection
+        setBpmDetecting(true);
+        setBpmDetected(false);
+        try {
+          const detectedBpm = await detectBpm(decoded);
+          setState((prev) => {
+            const measures = calculateMeasures(
+              decoded.duration,
+              detectedBpm,
+              prev.timeSignatureNumerator
+            );
+            return {
+              ...prev,
+              bpm: detectedBpm,
+              measures: Math.max(1, Math.min(999, measures)),
+            };
+          });
+          setBpmDetected(true);
+        } finally {
+          setBpmDetecting(false);
+        }
       } catch {
         alert("音声ファイルの読み込みに失敗しました");
       }
@@ -253,6 +280,8 @@ export default function DrumEditorPage() {
     stopBacktrack();
     setBacktrackBuffer(null);
     setBacktrackName("");
+    setBacktrackDuration(0);
+    setBpmDetected(false);
   }, [stopBacktrack]);
 
   // Playback
@@ -517,7 +546,10 @@ export default function DrumEditorPage() {
         canRedo={redoStack.current.length > 0}
         onPlay={startPlayback}
         onStop={stopPlayback}
-        onBpmChange={(bpm) => setState((p) => ({ ...p, bpm }))}
+        onBpmChange={(bpm) => {
+          setBpmDetected(false);
+          setState((p) => ({ ...p, bpm }));
+        }}
         onLoopToggle={() => setLoop((l) => !l)}
         onToggleRecording={() => setRecording((r) => !r)}
         onUpload={handleUpload}
@@ -530,8 +562,11 @@ export default function DrumEditorPage() {
           setState((p) => ({ ...p, measures: m }));
         }}
         backtrackName={backtrackName}
+        backtrackDuration={backtrackDuration}
         backtrackVolume={backtrackVolume}
         backtrackMuted={backtrackMuted}
+        bpmDetecting={bpmDetecting}
+        bpmDetected={bpmDetected}
         onBacktrackUpload={handleBacktrackUpload}
         onBacktrackVolumeChange={setBacktrackVolume}
         onBacktrackMuteToggle={() => setBacktrackMuted((m) => !m)}
