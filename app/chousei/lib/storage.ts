@@ -19,12 +19,12 @@ function hasLS(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
 }
 
-/** 短いランダムID。 */
+/** 推測されにくいランダムID(12文字hex≒48bit)。リンクを知ってる人だけが入れる前提。 */
 export function generateId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   }
-  return Math.random().toString(36).slice(2, 10);
+  return (Math.random().toString(36) + Math.random().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 12);
 }
 
 export async function saveEvent(ev: StoredEvent): Promise<void> {

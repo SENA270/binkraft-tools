@@ -11,6 +11,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
+      url: `${BASE_URL}/chousei`,
+      lastModified: "2026-05-29",
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE_URL}/commute`,
       lastModified: "2026-04-16",
       changeFrequency: "monthly",
