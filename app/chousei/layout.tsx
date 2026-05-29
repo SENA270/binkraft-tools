@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
   title: "日程の被り調整 | 何時から空いてる？で予定を決める",
@@ -10,6 +10,15 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: { card: "summary_large_image" },
+};
+
+// iOS Safari は入力欄(文字<16px)にフォーカスすると自動ズームする。
+// このツールはフォーム主体なので、調整ページに限り最大倍率を固定してズームを抑止する。
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function ChouseiLayout({ children }: { children: React.ReactNode }) {
