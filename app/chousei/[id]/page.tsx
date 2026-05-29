@@ -278,9 +278,14 @@ export default function ChouseiEventPage() {
   return (
     <main className="flex-1 bg-gradient-to-b from-indigo-50 to-white">
       <div className="mx-auto max-w-lg px-4 py-10">
-        <Link href="/chousei" className="text-sm text-zinc-400 hover:underline">
-          ← 新規作成
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/chousei" className="text-sm text-zinc-400 hover:underline">
+            ← 新規作成
+          </Link>
+          <Link href="/chousei/guide" className="text-sm font-bold text-indigo-600 hover:underline">
+            使い方
+          </Link>
+        </div>
 
         <div className="mt-4 flex items-center gap-2">
           <h1 className="text-2xl font-black text-zinc-900">{event.title}</h1>
@@ -373,6 +378,12 @@ export default function ChouseiEventPage() {
               placeholder="あなたの名前"
               className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
             />
+
+            {myResponse && (
+              <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">
+                {myResponse.name}さんの回答を編集中です。変更して「回答を更新」を押すと上書きされます。
+              </div>
+            )}
 
             {/* Googleカレンダー連携: 空き時間を自動取り込み(予定の中身は読まない) */}
             <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
@@ -534,7 +545,7 @@ export default function ChouseiEventPage() {
               disabled={!name.trim()}
               className="mt-4 w-full rounded-xl bg-indigo-600 py-3.5 text-base font-bold text-white shadow-lg transition hover:bg-indigo-700 disabled:opacity-40"
             >
-              {saved ? "保存しました" : "回答を送信"}
+              {saved ? "保存しました" : myResponse ? "回答を更新" : "回答を送信"}
             </button>
           </div>
         ) : (

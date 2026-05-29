@@ -82,9 +82,14 @@ export default function ChouseiCreatePage() {
         className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden px-4 pt-5"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
       >
-        <Link href="/" className="shrink-0 text-sm text-zinc-400 hover:underline">
-          ← ツール一覧
-        </Link>
+        <div className="flex shrink-0 items-center justify-between">
+          <Link href="/" className="text-sm text-zinc-400 hover:underline">
+            ← ツール一覧
+          </Link>
+          <Link href="/chousei/guide" className="text-sm font-bold text-indigo-600 hover:underline">
+            使い方
+          </Link>
+        </div>
         <h1 className="mt-1 shrink-0 text-2xl font-black text-zinc-900">日程の被り調整</h1>
         <p className="mt-1 shrink-0 text-xs text-zinc-500">
           候補日に「何時〜何時なら空いてる」を入れてもらうだけ。被ってる時間帯を自動で出します。
