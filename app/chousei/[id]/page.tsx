@@ -33,6 +33,8 @@ export default function ChouseiEventPage() {
   const [canShare, setCanShare] = useState(false);
   const [bulkRanges, setBulkRanges] = useState<TimeRange[]>([{ start: "", end: "" }]);
   const [bulkNote, setBulkNote] = useState("");
+  // まとめて設定の反映先曜日。index は getDay()(0=日..6=土)。既定は全曜日ON(=従来動作)。
+  const [bulkDays, setBulkDays] = useState<boolean[]>(() => Array(7).fill(true));
 
   useEffect(() => {
     (async () => {
@@ -77,6 +79,8 @@ export default function ChouseiEventPage() {
   // 入力できる時刻の選択肢(分)。dayStart〜dayEnd を slotMinutes(=30) 刻みで。
   const timeOptions: number[] = [];
   for (let t = config.dayStart; t <= config.dayEnd; t += config.slotMinutes) timeOptions.push(t);
+  // 候補日に実在する曜日だけチップを出す。
+  const presentWeekdays = new Set(config.candidateDates.map(weekdayOf));
 
   const setDay = (date: string, next: Partial<DaySelection>) =>
     setSelection((prev) => ({ ...prev, [date]: { ...prev[date], ...next } }));
@@ -115,6 +119,12 @@ export default function ChouseiEventPage() {
   const setBulkAllOk = () => setBulkRanges([{ start: String(config.dayStart), end: String(config.dayEnd) }]);
   const clearBulk = () => setBulkRanges([{ start: "", end: "" }]);
 
+  const toggleBulkDay = (idx: number) =>
+    setBulkDays((prev) => prev.map((v, i) => (i === idx ? !v : v)));
+  const setBulkWeekdays = () => setBulkDays([false, true, true, true, true, true, false]); // 月〜金
+  const setBulkWeekend = () => setBulkDays([true, false, false, false, false, false, true]); // 土・日
+  const setBulkAllDays = () => setBulkDays(Array(7).fill(true));
+
   const applyBulkToAll = () => {
     const valid = bulkRanges.filter(
       (r) => r.start !== "" && r.end !== "" && Number(r.end) > Number(r.start)
@@ -123,13 +133,19 @@ export default function ChouseiEventPage() {
       setBulkNote("時間帯を入れてください");
       return;
     }
-    const targets = config.candidateDates.filter((d) => !selection[d].unavailable);
+    const targets = config.candidateDates.filter(
+      (d) => !selection[d].unavailable && bulkDays[weekdayOf(d)]
+    );
+    if (targets.length === 0) {
+      setBulkNote("反映する曜日を選んでください（×の日は対象外）");
+      return;
+    }
     setSelection((prev) => {
       const next = { ...prev };
       for (const date of targets) next[date] = { ...next[date], ranges: valid.map((r) => ({ ...r })) };
       return next;
     });
-    setBulkNote(`${targets.length}日に反映しました（×の日は除く）`);
+    setBulkNote(`${targets.length}日に反映しました（選んだ曜日・×の日は除く）`);
   };
 
   const submit = async () => {
@@ -278,11 +294,37 @@ export default function ChouseiEventPage() {
                   <PresetBtn onClick={clearBulk}>クリア</PresetBtn>
                 </div>
               </div>
+
+              <div className="mt-3">
+                <p className="text-xs font-bold text-zinc-600">反映する曜日（平日と土日で2回に分けて入力できます）</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {WEEKDAY_CHIPS.filter((w) => presentWeekdays.has(w.idx)).map((w) => (
+                    <button
+                      key={w.idx}
+                      onClick={() => toggleBulkDay(w.idx)}
+                      aria-pressed={bulkDays[w.idx]}
+                      className={`h-8 w-8 rounded-full text-sm font-bold transition ${
+                        bulkDays[w.idx]
+                          ? "bg-indigo-600 text-white"
+                          : "border border-zinc-200 bg-white text-zinc-400"
+                      }`}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <PresetBtn onClick={setBulkWeekdays}>平日</PresetBtn>
+                  <PresetBtn onClick={setBulkWeekend}>土日</PresetBtn>
+                  <PresetBtn onClick={setBulkAllDays}>全曜日</PresetBtn>
+                </div>
+              </div>
+
               <button
                 onClick={applyBulkToAll}
                 className="mt-3 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700"
               >
-                全ての候補日に反映
+                選んだ曜日に反映
               </button>
               {bulkNote && <p className="mt-1 text-center text-xs text-indigo-700">{bulkNote}</p>}
             </div>
@@ -534,3 +576,20 @@ function formatDateLabel(d: string): string {
   const wd = ["日", "月", "火", "水", "木", "金", "土"][new Date(y, m - 1, day).getDay()];
   return `${m}/${day}(${wd})`;
 }
+
+// "YYYY-MM-DD" → getDay()(0=日..6=土)。
+function weekdayOf(d: string): number {
+  const [y, m, day] = d.split("-").map(Number);
+  return new Date(y, m - 1, day).getDay();
+}
+
+// まとめて設定の曜日チップ(月始まり表示)。idx は getDay() に対応。
+const WEEKDAY_CHIPS = [
+  { idx: 1, label: "月" },
+  { idx: 2, label: "火" },
+  { idx: 3, label: "水" },
+  { idx: 4, label: "木" },
+  { idx: 5, label: "金" },
+  { idx: 6, label: "土" },
+  { idx: 0, label: "日" },
+];
