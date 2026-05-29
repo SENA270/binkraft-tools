@@ -1,8 +1,10 @@
-// 保存層。今は localStorage 実装(同一端末で動作確認用)。
-// あとで案B(Vercel KV / Upstash)に差し替えるときは、この関数の中身を fetch("/api/...") に置き換えるだけ。
-// I/F を async にしてあるので、呼び出し側(UI)は変更不要。
+// 保存層。サーバ(API /api/chousei/* = Upstash Redis)を優先。
+// サーバが未設定/エラーのときは localStorage にフォールバック(=従来動作。同一端末でのみ有効)。
+// → 環境変数(KV)を設定してデプロイすると、自動で「リンク共有して複数人で使える」状態に切り替わる。
+// I/F は async のまま。呼び出し側(UI)は変更不要。
 
-import type { EventConfig, ParticipantResponse } from "./types";
+import type { ParticipantResponse } from "./types";
+import type { EventConfig } from "./types";
 
 export type StoredEvent = {
   id: string;
@@ -27,42 +29,82 @@ export function generateId(): string {
   return (Math.random().toString(36) + Math.random().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 12);
 }
 
-export async function saveEvent(ev: StoredEvent): Promise<void> {
-  if (!hasLS()) return;
-  window.localStorage.setItem(EVENT_KEY(ev.id), JSON.stringify(ev));
+// ── localStorage フォールバック(従来実装) ──
+function lsSaveEvent(ev: StoredEvent): void {
+  if (hasLS()) window.localStorage.setItem(EVENT_KEY(ev.id), JSON.stringify(ev));
 }
-
-export async function getEvent(id: string): Promise<StoredEvent | null> {
+function lsGetEvent(id: string): StoredEvent | null {
   if (!hasLS()) return null;
   const raw = window.localStorage.getItem(EVENT_KEY(id));
   if (!raw) return null;
+  try { return JSON.parse(raw) as StoredEvent; } catch { return null; }
+}
+function lsGetResponses(id: string): ParticipantResponse[] {
+  if (!hasLS()) return [];
+  const raw = window.localStorage.getItem(RESP_KEY(id));
+  if (!raw) return [];
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; } catch { return []; }
+}
+function lsUpsertResponse(id: string, resp: ParticipantResponse): void {
+  if (!hasLS()) return;
+  const list = lsGetResponses(id);
+  const idx = list.findIndex((r) => r.name === resp.name);
+  if (idx >= 0) list[idx] = resp; else list.push(resp);
+  window.localStorage.setItem(RESP_KEY(id), JSON.stringify(list));
+}
+
+// ── サーバ(API) ──
+// 成功時は true / サーバ未設定・エラー時は throw(呼び出し側で LS フォールバック)
+async function apiGet(path: string): Promise<Response> {
+  const res = await fetch(path, { cache: "no-store" });
+  if (!res.ok) throw new Error(`api ${res.status}`); // 503(未設定)/502(KVエラー)含む
+  return res;
+}
+async function apiPost(path: string, body: unknown): Promise<Response> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`api ${res.status}`);
+  return res;
+}
+
+export async function saveEvent(ev: StoredEvent): Promise<void> {
   try {
-    return JSON.parse(raw) as StoredEvent;
+    await apiPost("/api/chousei/event", ev);
   } catch {
-    return null;
+    lsSaveEvent(ev); // サーバ未設定/エラー → 端末ローカルに保存(従来動作)
+  }
+}
+
+export async function getEvent(id: string): Promise<StoredEvent | null> {
+  try {
+    const res = await apiGet(`/api/chousei/event?id=${encodeURIComponent(id)}`);
+    const j = (await res.json()) as { event?: StoredEvent | null };
+    return j.event ?? null;
+  } catch {
+    return lsGetEvent(id);
   }
 }
 
 export async function getResponses(id: string): Promise<ParticipantResponse[]> {
-  if (!hasLS()) return [];
-  const raw = window.localStorage.getItem(RESP_KEY(id));
-  if (!raw) return [];
   try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? (arr as ParticipantResponse[]) : [];
+    const res = await apiGet(`/api/chousei/responses?id=${encodeURIComponent(id)}`);
+    const j = (await res.json()) as { responses?: ParticipantResponse[] };
+    return Array.isArray(j.responses) ? j.responses : [];
   } catch {
-    return [];
+    return lsGetResponses(id);
   }
 }
 
 /** 同じ名前があれば置き換え、無ければ追加。 */
 export async function upsertResponse(id: string, resp: ParticipantResponse): Promise<void> {
-  if (!hasLS()) return;
-  const list = await getResponses(id);
-  const idx = list.findIndex((r) => r.name === resp.name);
-  if (idx >= 0) list[idx] = resp;
-  else list.push(resp);
-  window.localStorage.setItem(RESP_KEY(id), JSON.stringify(list));
+  try {
+    await apiPost("/api/chousei/responses", { id, response: resp });
+  } catch {
+    lsUpsertResponse(id, resp);
+  }
 }
 
 export function loadMyName(): string {
