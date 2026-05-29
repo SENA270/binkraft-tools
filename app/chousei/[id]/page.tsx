@@ -202,7 +202,7 @@ export default function ChouseiEventPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="あなたの名前"
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
             />
 
             {/* まとめて設定: 全候補日に同じ時間帯を一括反映 */}
@@ -337,7 +337,7 @@ function TimeSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="flex-1 rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+      className="flex-1 rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
     >
       <option value="">{placeholder}</option>
       {options.map((m) => (

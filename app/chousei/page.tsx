@@ -84,7 +84,7 @@ export default function ChouseiCreatePage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="例: 6月の打ち上げ"
-              className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+              className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
             />
           </div>
 
@@ -95,7 +95,7 @@ export default function ChouseiCreatePage() {
                 type="date"
                 value={rangeStart}
                 onChange={(e) => setRangeStart(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+                className="flex-1 rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
               />
               <span className="text-zinc-400">〜</span>
               <input
@@ -103,7 +103,7 @@ export default function ChouseiCreatePage() {
                 value={rangeEnd}
                 min={rangeStart || undefined}
                 onChange={(e) => setRangeEnd(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+                className="flex-1 rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
               />
             </div>
             <button
@@ -150,7 +150,7 @@ export default function ChouseiCreatePage() {
               <select
                 value={startHour}
                 onChange={(e) => setStartHour(Number(e.target.value))}
-                className="rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+                className="rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
               >
                 {HOURS.slice(0, 24).map((h) => (
                   <option key={h} value={h}>
@@ -162,7 +162,7 @@ export default function ChouseiCreatePage() {
               <select
                 value={endHour}
                 onChange={(e) => setEndHour(Number(e.target.value))}
-                className="rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+                className="rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
               >
                 {HOURS.filter((h) => h > startHour).map((h) => (
                   <option key={h} value={h}>
