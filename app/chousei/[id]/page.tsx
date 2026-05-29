@@ -30,6 +30,8 @@ export default function ChouseiEventPage() {
   const [selection, setSelection] = useState<Record<string, DaySelection>>({});
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [bulkRanges, setBulkRanges] = useState<TimeRange[]>([{ start: "", end: "" }]);
+  const [bulkNote, setBulkNote] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -95,6 +97,35 @@ export default function ChouseiEventPage() {
   const setAllOk = (date: string) =>
     setDay(date, { ranges: [{ start: String(config.dayStart), end: String(config.dayEnd) }] });
   const clearRanges = (date: string) => setDay(date, { ranges: [{ start: "", end: "" }] });
+
+  // まとめて設定(全候補日に同じ時間帯を一括反映)
+  const setBulkField = (ri: number, field: "start" | "end", value: string) =>
+    setBulkRanges((prev) => prev.map((r, i) => (i === ri ? { ...r, [field]: value } : r)));
+  const addBulkRange = () => setBulkRanges((prev) => [...prev, { start: "", end: "" }]);
+  const removeBulkRange = (ri: number) =>
+    setBulkRanges((prev) => {
+      const next = prev.filter((_, i) => i !== ri);
+      return next.length ? next : [{ start: "", end: "" }];
+    });
+  const setBulkAllOk = () => setBulkRanges([{ start: String(config.dayStart), end: String(config.dayEnd) }]);
+  const clearBulk = () => setBulkRanges([{ start: "", end: "" }]);
+
+  const applyBulkToAll = () => {
+    const valid = bulkRanges.filter(
+      (r) => r.start !== "" && r.end !== "" && Number(r.end) > Number(r.start)
+    );
+    if (valid.length === 0) {
+      setBulkNote("時間帯を入れてください");
+      return;
+    }
+    const targets = config.candidateDates.filter((d) => !selection[d].unavailable);
+    setSelection((prev) => {
+      const next = { ...prev };
+      for (const date of targets) next[date] = { ...next[date], ranges: valid.map((r) => ({ ...r })) };
+      return next;
+    });
+    setBulkNote(`${targets.length}日に反映しました（×の日は除く）`);
+  };
 
   const submit = async () => {
     const trimmed = name.trim();
@@ -173,6 +204,52 @@ export default function ChouseiEventPage() {
               placeholder="あなたの名前"
               className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
             />
+
+            {/* まとめて設定: 全候補日に同じ時間帯を一括反映 */}
+            <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+              <p className="text-sm font-bold text-indigo-900">まとめて設定</p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                同じ時間帯を全部の候補日に一括で入れられます（反映後に個別調整もOK）
+              </p>
+              <div className="mt-2 space-y-2">
+                {bulkRanges.map((r, ri) => (
+                  <div key={ri} className="flex items-center gap-2">
+                    <TimeSelect
+                      value={r.start}
+                      options={timeOptions.slice(0, -1)}
+                      placeholder="開始"
+                      onChange={(v) => setBulkField(ri, "start", v)}
+                    />
+                    <span className="text-zinc-400">〜</span>
+                    <TimeSelect
+                      value={r.end}
+                      options={timeOptions.slice(1)}
+                      placeholder="終了"
+                      onChange={(v) => setBulkField(ri, "end", v)}
+                    />
+                    <button
+                      onClick={() => removeBulkRange(ri)}
+                      className="ml-1 text-zinc-300 hover:text-rose-500"
+                      aria-label="この時間帯を削除"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-1.5">
+                  <PresetBtn onClick={addBulkRange}>＋ 時間帯を追加</PresetBtn>
+                  <PresetBtn onClick={setBulkAllOk}>全部OK</PresetBtn>
+                  <PresetBtn onClick={clearBulk}>クリア</PresetBtn>
+                </div>
+              </div>
+              <button
+                onClick={applyBulkToAll}
+                className="mt-3 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700"
+              >
+                全ての候補日に反映
+              </button>
+              {bulkNote && <p className="mt-1 text-center text-xs text-indigo-700">{bulkNote}</p>}
+            </div>
 
             <div className="mt-4 space-y-4">
               {config.candidateDates.map((date) => {
