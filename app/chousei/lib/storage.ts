@@ -20,6 +20,7 @@ export type StoredEvent = {
 const EVENT_KEY = (id: string) => `chousei:event:${id}`;
 const RESP_KEY = (id: string) => `chousei:responses:${id}`;
 const MYNAME_KEY = "chousei:myname";
+const MASTER_KEY = (id: string) => `chousei:master:${id}`;
 
 function hasLS(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
@@ -122,6 +123,14 @@ export async function setConfirmed(id: string, confirmed: ConfirmedSlot | null):
       lsSaveEvent(ev);
     }
   }
+}
+
+/** イベント作成者(マスター)を作成者の端末に記録/判定する(ローカル簡易判定)。 */
+export function markMaster(id: string): void {
+  if (hasLS()) window.localStorage.setItem(MASTER_KEY(id), "1");
+}
+export function isMaster(id: string): boolean {
+  return hasLS() && window.localStorage.getItem(MASTER_KEY(id)) === "1";
 }
 
 export function loadMyName(): string {

@@ -11,6 +11,7 @@ import {
   loadMyName,
   saveMyName,
   setConfirmed,
+  isMaster,
   type StoredEvent,
   type ConfirmedSlot,
 } from "../lib/storage";
@@ -40,6 +41,7 @@ export default function ChouseiEventPage() {
   const [bulkDays, setBulkDays] = useState<boolean[]>(() => Array(7).fill(true));
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState("");
+  const [master, setMaster] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -61,7 +63,8 @@ export default function ChouseiEventPage() {
 
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
-  }, []);
+    setMaster(isMaster(id));
+  }, [id]);
 
   // Googleカレンダー連携から戻ってきたとき(?gcal=connected)に空き時間を取り込む。
   useEffect(() => {
@@ -279,7 +282,16 @@ export default function ChouseiEventPage() {
           ← 新規作成
         </Link>
 
-        <h1 className="mt-4 text-2xl font-black text-zinc-900">{event.title}</h1>
+        <div className="mt-4 flex items-center gap-2">
+          <h1 className="text-2xl font-black text-zinc-900">{event.title}</h1>
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${
+              master ? "bg-amber-100 text-amber-700" : "bg-zinc-100 text-zinc-500"
+            }`}
+          >
+            {master ? "マスター" : "メンバー"}
+          </span>
+        </div>
         <p className="mt-1 text-sm text-zinc-500">
           候補 {config.candidateDates.length}日 / {minutesToHHMM(config.dayStart)}〜
           {minutesToHHMM(config.dayEnd)}
@@ -367,6 +379,9 @@ export default function ChouseiEventPage() {
               <p className="text-sm font-bold text-emerald-900">Googleカレンダーから取り込む</p>
               <p className="mt-0.5 text-xs text-zinc-500">
                 空いている時間を自動で入力します（予定の中身は読みません。空き／予定ありだけ）。
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                ※現在は招待制です。使いたい人はマスターに連絡してください。
               </p>
               <button
                 onClick={importFromGoogle}
