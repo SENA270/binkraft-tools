@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { ParticipantResponse } from "../lib/types";
@@ -79,15 +79,6 @@ export default function ChouseiEventPage() {
 
   const setDay = (date: string, next: Partial<DaySelection>) =>
     setSelection((prev) => ({ ...prev, [date]: { ...prev[date], ...next } }));
-
-  const toggleSlot = (date: string, i: number) => {
-    setSelection((prev) => {
-      const day = prev[date];
-      const slots = day.slots.slice();
-      slots[i] = !slots[i];
-      return { ...prev, [date]: { ...day, slots } };
-    });
-  };
 
   const applyPreset = (date: string, from: number, to: number, mode: "set" | "or" | "clear") => {
     setSelection((prev) => {
@@ -175,7 +166,7 @@ export default function ChouseiEventPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="あなたの名前"
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm"
+              className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
             />
 
             <div className="mt-4 space-y-4">
@@ -213,25 +204,15 @@ export default function ChouseiEventPage() {
                             クリア
                           </PresetBtn>
                         </div>
-                        <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
-                          {Array.from({ length: n }, (_, i) => {
-                            const start = config.dayStart + i * config.slotMinutes;
-                            const on = day.slots[i];
-                            return (
-                              <button
-                                key={i}
-                                onClick={() => toggleSlot(date, i)}
-                                className={`rounded-md py-1.5 text-xs font-medium transition ${
-                                  on
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
-                                }`}
-                              >
-                                {minutesToHHMM(start)}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <p className="mt-3 text-xs text-zinc-400">
+                          なぞって範囲選択・タップで1コマ切替
+                        </p>
+                        <DragSlotGrid
+                          slots={day.slots}
+                          dayStart={config.dayStart}
+                          slotMinutes={config.slotMinutes}
+                          onChange={(next) => setDay(date, { slots: next })}
+                        />
                       </>
                     )}
                   </div>
@@ -351,6 +332,78 @@ function PresetBtn({ children, onClick }: { children: React.ReactNode; onClick: 
     >
       {children}
     </button>
+  );
+}
+
+// 時間スロットをなぞって範囲選択。タッチでも動くよう pointer + elementFromPoint で塗る。
+function DragSlotGrid({
+  slots,
+  dayStart,
+  slotMinutes,
+  onChange,
+}: {
+  slots: boolean[];
+  dayStart: number;
+  slotMinutes: number;
+  onChange: (next: boolean[]) => void;
+}) {
+  const modeRef = useRef<boolean | null>(null); // 塗る値(押した所の反対)
+  const slotsRef = useRef(slots);
+  slotsRef.current = slots;
+
+  useEffect(() => {
+    const end = () => {
+      modeRef.current = null;
+    };
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, []);
+
+  const idxFromPoint = (x: number, y: number): number => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const cell = el?.closest<HTMLElement>("[data-slot]");
+    return cell ? Number(cell.dataset.slot) : -1;
+  };
+
+  const paint = (i: number) => {
+    if (i < 0 || modeRef.current === null) return;
+    if (slotsRef.current[i] === modeRef.current) return;
+    const next = slotsRef.current.slice();
+    next[i] = modeRef.current;
+    onChange(next);
+  };
+
+  return (
+    <div
+      className="mt-2 grid grid-cols-4 gap-1.5 select-none sm:grid-cols-6"
+      style={{ touchAction: "none" }}
+      onPointerDown={(e) => {
+        const i = idxFromPoint(e.clientX, e.clientY);
+        if (i < 0) return;
+        modeRef.current = !slotsRef.current[i];
+        paint(i);
+      }}
+      onPointerMove={(e) => {
+        if (modeRef.current === null) return;
+        paint(idxFromPoint(e.clientX, e.clientY));
+      }}
+    >
+      {slots.map((on, i) => (
+        <div
+          key={i}
+          data-slot={i}
+          className={`rounded-md py-1.5 text-center text-xs font-medium ${
+            on ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-800"
+          }`}
+        >
+          {minutesToHHMM(dayStart + i * slotMinutes)}
+        </div>
+      ))}
+    </div>
   );
 }
 
