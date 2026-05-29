@@ -6,11 +6,15 @@
 import type { ParticipantResponse } from "./types";
 import type { EventConfig } from "./types";
 
+/** 主催者が確定した最終日時(分単位)。未確定なら null/undefined。 */
+export type ConfirmedSlot = { date: string; start: number; end: number };
+
 export type StoredEvent = {
   id: string;
   title: string;
   config: EventConfig;
   createdAt: number;
+  confirmed?: ConfirmedSlot | null;
 };
 
 const EVENT_KEY = (id: string) => `chousei:event:${id}`;
@@ -104,6 +108,19 @@ export async function upsertResponse(id: string, resp: ParticipantResponse): Pro
     await apiPost("/api/chousei/responses", { id, response: resp });
   } catch {
     lsUpsertResponse(id, resp);
+  }
+}
+
+/** 主催者が最終日時を確定/解除する。null で解除。 */
+export async function setConfirmed(id: string, confirmed: ConfirmedSlot | null): Promise<void> {
+  try {
+    await apiPost("/api/chousei/confirm", { id, confirmed });
+  } catch {
+    const ev = lsGetEvent(id);
+    if (ev) {
+      ev.confirmed = confirmed;
+      lsSaveEvent(ev);
+    }
   }
 }
 

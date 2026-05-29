@@ -10,7 +10,9 @@ import {
   upsertResponse,
   loadMyName,
   saveMyName,
+  setConfirmed,
   type StoredEvent,
+  type ConfirmedSlot,
 } from "../lib/storage";
 import { rankDays, slotAvailability, slotCount, minutesToHHMM } from "../lib/overlap";
 
@@ -255,6 +257,12 @@ export default function ChouseiEventPage() {
     window.location.href = `/api/chousei/google/start?id=${encodeURIComponent(id)}`;
   };
 
+  const confirmSlot = async (slot: ConfirmedSlot | null) => {
+    if (!event) return;
+    setEvent({ ...event, confirmed: slot }); // 楽観的更新
+    await setConfirmed(id, slot);
+  };
+
   return (
     <main className="flex-1 bg-gradient-to-b from-indigo-50 to-white">
       <div className="mx-auto max-w-lg px-4 py-10">
@@ -267,6 +275,25 @@ export default function ChouseiEventPage() {
           候補 {config.candidateDates.length}日 / {minutesToHHMM(config.dayStart)}〜
           {minutesToHHMM(config.dayEnd)}
         </p>
+
+        {event.confirmed && (
+          <div className="mt-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white">確定</span>
+              <span className="text-xs font-bold text-emerald-700">この日時で決まりました</span>
+            </div>
+            <p className="mt-2 text-xl font-black text-zinc-900">
+              {formatDateLabel(event.confirmed.date)} {minutesToHHMM(event.confirmed.start)}〜
+              {minutesToHHMM(event.confirmed.end)}
+            </p>
+            <button
+              onClick={() => confirmSlot(null)}
+              className="mt-2 text-xs font-bold text-zinc-400 hover:text-rose-500"
+            >
+              確定を解除する
+            </button>
+          </div>
+        )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -465,7 +492,7 @@ export default function ChouseiEventPage() {
             </button>
           </div>
         ) : (
-          <Results event={event} responses={responses} />
+          <Results event={event} responses={responses} confirmed={event.confirmed ?? null} onConfirm={confirmSlot} />
         )}
       </div>
     </main>
@@ -499,7 +526,17 @@ function TimeSelect({
   );
 }
 
-function Results({ event, responses }: { event: StoredEvent; responses: ParticipantResponse[] }) {
+function Results({
+  event,
+  responses,
+  confirmed,
+  onConfirm,
+}: {
+  event: StoredEvent;
+  responses: ParticipantResponse[];
+  confirmed: ConfirmedSlot | null;
+  onConfirm: (slot: ConfirmedSlot | null) => void;
+}) {
   const config = event.config;
   const total = responses.length;
   if (total === 0) return <p className="mt-8 text-center text-sm text-zinc-400">まだ回答がありません</p>;
@@ -508,6 +545,9 @@ function Results({ event, responses }: { event: StoredEvent; responses: Particip
   // 全候補日のうち、いちばん多くの人が出れる窓(=おすすめ)。
   const topDay = ranked.find((r) => r.windows[0]);
   const topPick = topDay?.windows[0];
+
+  const sameSlot = (date: string, start: number, end: number) =>
+    !!confirmed && confirmed.date === date && confirmed.start === start && confirmed.end === end;
 
   return (
     <div className="mt-6">
@@ -539,6 +579,22 @@ function Results({ event, responses }: { event: StoredEvent; responses: Particip
               ? `回答した${topPick.count}人全員が参加できます`
               : `${topPick.count}/${total}人が参加可能${topPick.absentees.length > 0 ? `（欠: ${topPick.absentees.join("、")}）` : ""}`}
           </p>
+          <button
+            onClick={() =>
+              onConfirm(
+                sameSlot(topDay!.date, topPick.start, topPick.end)
+                  ? null
+                  : { date: topDay!.date, start: topPick.start, end: topPick.end }
+              )
+            }
+            className={`mt-3 w-full rounded-lg py-2.5 text-sm font-bold transition ${
+              sameSlot(topDay!.date, topPick.start, topPick.end)
+                ? "bg-emerald-600 text-white"
+                : "border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            {sameSlot(topDay!.date, topPick.start, topPick.end) ? "確定済み（解除する）" : "この日時で確定する"}
+          </button>
         </div>
       )}
 
@@ -587,16 +643,31 @@ function Results({ event, responses }: { event: StoredEvent; responses: Particip
 
               <div className="mt-3 space-y-1.5">
                 {windows.length === 0 && <p className="text-sm text-zinc-400">条件に合う時間帯がありません</p>}
-                {windows.map((w, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="font-bold text-zinc-800">
-                      {minutesToHHMM(w.start)}〜{minutesToHHMM(w.end)}
-                    </span>
-                    <span className="text-zinc-500">
-                      {w.isFullConsensus ? `全員(${w.count}人)` : `${w.count}人 / 欠: ${w.absentees.join("、")}`}
-                    </span>
-                  </div>
-                ))}
+                {windows.map((w, i) => {
+                  const isConf = sameSlot(date, w.start, w.end);
+                  return (
+                    <div key={i} className="rounded-lg bg-zinc-50 p-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-zinc-800">
+                          {minutesToHHMM(w.start)}〜{minutesToHHMM(w.end)}
+                        </span>
+                        <button
+                          onClick={() => onConfirm(isConf ? null : { date, start: w.start, end: w.end })}
+                          className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${
+                            isConf
+                              ? "bg-emerald-600 text-white"
+                              : "border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100"
+                          }`}
+                        >
+                          {isConf ? "確定中" : "確定"}
+                        </button>
+                      </div>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        {w.isFullConsensus ? `全員(${w.count}人)` : `${w.count}人 / 欠: ${w.absentees.join("、")}`}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
