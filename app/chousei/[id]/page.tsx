@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import type { ParticipantResponse } from "../lib/types";
+import type { ParticipantResponse, DayAvailability } from "../lib/types";
 import {
   getEvent,
   getResponses,
@@ -29,6 +29,7 @@ export default function ChouseiEventPage() {
   const [tab, setTab] = useState<"input" | "result">("input");
 
   const [name, setName] = useState("");
+  const [comment, setComment] = useState("");
   const [selection, setSelection] = useState<Record<string, DaySelection>>({});
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -50,6 +51,7 @@ export default function ChouseiEventPage() {
         const myName = loadMyName();
         setName(myName);
         const mine = resp.find((r) => r.name === myName);
+        if (mine?.comment) setComment(mine.comment);
         setSelection(buildSelection(ev, mine));
         if (resp.length > 0 && mine) setTab("result");
       }
@@ -216,7 +218,7 @@ export default function ChouseiEventPage() {
         byDate[date] = { unavailable: false, intervals };
       }
     }
-    await upsertResponse(id, { name: trimmed, byDate });
+    await upsertResponse(id, { name: trimmed, byDate, comment: comment.trim() || undefined });
     saveMyName(trimmed);
     setResponses(await getResponses(id));
     setSaved(true);
@@ -263,6 +265,13 @@ export default function ChouseiEventPage() {
     await setConfirmed(id, slot);
   };
 
+  // 確定日時が、自分(myName)の回答した空きでカバーされているか。未カバー=かぶり。
+  const myResponse = responses.find((r) => r.name === name.trim());
+  const confirmedConflict =
+    !!event.confirmed &&
+    !!myResponse &&
+    !availabilityCovers(myResponse.byDate[event.confirmed.date], event.confirmed.start, event.confirmed.end);
+
   return (
     <main className="flex-1 bg-gradient-to-b from-indigo-50 to-white">
       <div className="mx-auto max-w-lg px-4 py-10">
@@ -286,6 +295,19 @@ export default function ChouseiEventPage() {
               {formatDateLabel(event.confirmed.date)} {minutesToHHMM(event.confirmed.start)}〜
               {minutesToHHMM(event.confirmed.end)}
             </p>
+            {confirmedConflict && (
+              <p className="mt-1 rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-600">
+                ⚠ あなたはこの時間を空きにしていません（予定とかぶってるかも）
+              </p>
+            )}
+            <a
+              href={googleCalendarUrl(event.title, event.confirmed)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 block w-full rounded-lg bg-emerald-600 py-2.5 text-center text-sm font-bold text-white transition hover:bg-emerald-700"
+            >
+              自分のGoogleカレンダーに追加
+            </a>
             <button
               onClick={() => confirmSlot(null)}
               className="mt-2 text-xs font-bold text-zinc-400 hover:text-rose-500"
@@ -483,10 +505,19 @@ export default function ChouseiEventPage() {
               })}
             </div>
 
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="ひとこと（任意）例: 19時以降ならOK"
+              maxLength={100}
+              className="mt-4 w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
+            />
+
             <button
               onClick={submit}
               disabled={!name.trim()}
-              className="mt-6 w-full rounded-xl bg-indigo-600 py-3.5 text-base font-bold text-white shadow-lg transition hover:bg-indigo-700 disabled:opacity-40"
+              className="mt-4 w-full rounded-xl bg-indigo-600 py-3.5 text-base font-bold text-white shadow-lg transition hover:bg-indigo-700 disabled:opacity-40"
             >
               {saved ? "保存しました" : "回答を送信"}
             </button>
@@ -554,6 +585,18 @@ function Results({
       <p className="text-sm text-zinc-500">
         回答 {total}人: {responses.map((r) => r.name).join("、")}
       </p>
+
+      {responses.some((r) => r.comment) && (
+        <div className="mt-2 space-y-1 rounded-lg bg-zinc-50 p-3">
+          {responses
+            .filter((r) => r.comment)
+            .map((r) => (
+              <p key={r.name} className="text-xs text-zinc-600">
+                <span className="font-bold text-zinc-800">{r.name}</span>: {r.comment}
+              </p>
+            ))}
+        </div>
+      )}
 
       {topPick && (
         <div
@@ -724,6 +767,31 @@ function formatDateLabel(d: string): string {
 function weekdayOf(d: string): number {
   const [y, m, day] = d.split("-").map(Number);
   return new Date(y, m - 1, day).getDay();
+}
+
+// 確定日時 → Googleカレンダー追加URL(新規予定テンプレ・JST)。
+function googleCalendarUrl(title: string, slot: ConfirmedSlot): string {
+  const fmt = (minutes: number) =>
+    `${slot.date.replace(/-/g, "")}T${String(Math.floor(minutes / 60)).padStart(2, "0")}${String(minutes % 60).padStart(2, "0")}00`;
+  const p = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: `${fmt(slot.start)}/${fmt(slot.end)}`,
+    ctz: "Asia/Tokyo",
+  });
+  return `https://calendar.google.com/calendar/render?${p.toString()}`;
+}
+
+// その日の回答が [start,end) を丸ごとカバーしているか(=空きにしているか)。
+function availabilityCovers(day: DayAvailability | undefined, start: number, end: number): boolean {
+  if (!day || day.unavailable) return false;
+  let cursor = start;
+  for (const iv of [...day.intervals].sort((a, b) => a.start - b.start)) {
+    if (iv.start > cursor) break;
+    cursor = Math.max(cursor, iv.end);
+    if (cursor >= end) return true;
+  }
+  return cursor >= end;
 }
 
 // まとめて設定の曜日チップ(月始まり表示)。idx は getDay() に対応。

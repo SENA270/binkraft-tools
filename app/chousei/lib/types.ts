@@ -13,6 +13,7 @@ export type DayAvailability = {
 export type ParticipantResponse = {
   name: string;
   byDate: Record<string, DayAvailability>;
+  comment?: string; // 任意のひとこと
 };
 
 /** イベント設定(主催者が作る)。 */
