@@ -30,6 +30,7 @@ export default function ChouseiEventPage() {
   const [selection, setSelection] = useState<Record<string, DaySelection>>({});
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
   const [bulkRanges, setBulkRanges] = useState<TimeRange[]>([{ start: "", end: "" }]);
   const [bulkNote, setBulkNote] = useState("");
 
@@ -49,6 +50,10 @@ export default function ChouseiEventPage() {
       setLoading(false);
     })();
   }, [id]);
+
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
 
   if (loading) return <Centered>読み込み中...</Centered>;
 
@@ -150,7 +155,7 @@ export default function ChouseiEventPage() {
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const copyUrl = async () => {
+  const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
@@ -158,6 +163,24 @@ export default function ChouseiEventPage() {
     } catch {
       /* noop */
     }
+  };
+
+  // ワンタップ共有: スマホはネイティブ共有シート(LINE/メール等)、非対応(主にPC)はコピーへ。
+  const shareUrl = async () => {
+    const url = window.location.href;
+    if (canShare) {
+      try {
+        await navigator.share({
+          title: event ? event.title : "日程調整",
+          text: event ? `「${event.title}」の日程を教えてください` : "日程を教えてください",
+          url,
+        });
+        return;
+      } catch {
+        return; // ユーザーがキャンセルしただけ。コピーへは落とさない。
+      }
+    }
+    await copyToClipboard();
   };
 
   return (
@@ -173,12 +196,25 @@ export default function ChouseiEventPage() {
           {minutesToHHMM(config.dayEnd)}
         </p>
 
-        <button
-          onClick={copyUrl}
-          className="mt-3 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 transition"
-        >
-          {copied ? "コピーしました" : "このページのURLをコピーして共有"}
-        </button>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            onClick={shareUrl}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 transition"
+          >
+            {canShare ? "リンクを共有（LINE・メールなど）" : copied ? "コピーしました" : "リンクをコピーして共有"}
+          </button>
+          {canShare && (
+            <button
+              onClick={copyToClipboard}
+              className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 transition"
+            >
+              {copied ? "コピーしました" : "URLをコピー"}
+            </button>
+          )}
+        </div>
+        <p className="mt-1.5 text-xs text-zinc-400">
+          このリンクを参加者に送ると、みんなが予定を入力できます。
+        </p>
 
         <div className="mt-6 flex rounded-xl bg-zinc-100 p-1 text-sm font-bold">
           <button
@@ -355,12 +391,42 @@ function Results({ event, responses }: { event: StoredEvent; responses: Particip
   if (total === 0) return <p className="mt-8 text-center text-sm text-zinc-400">まだ回答がありません</p>;
   const ranked = rankDays(responses, config);
   const n = slotCount(config);
+  // 全候補日のうち、いちばん多くの人が出れる窓(=おすすめ)。
+  const topDay = ranked.find((r) => r.windows[0]);
+  const topPick = topDay?.windows[0];
 
   return (
     <div className="mt-6">
       <p className="text-sm text-zinc-500">
         回答 {total}人: {responses.map((r) => r.name).join("、")}
       </p>
+
+      {topPick && (
+        <div
+          className={`mt-4 rounded-2xl border p-4 ${
+            topPick.isFullConsensus ? "border-green-200 bg-green-50" : "border-indigo-200 bg-indigo-50"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                topPick.isFullConsensus ? "bg-green-600 text-white" : "bg-indigo-600 text-white"
+              }`}
+            >
+              {topPick.isFullConsensus ? "全員OK" : "いちばん集まれる"}
+            </span>
+            <span className="text-xs font-bold text-zinc-500">おすすめ候補</span>
+          </div>
+          <p className="mt-2 text-xl font-black text-zinc-900">
+            {formatDateLabel(topDay!.date)} {minutesToHHMM(topPick.start)}〜{minutesToHHMM(topPick.end)}
+          </p>
+          <p className="mt-1 text-sm text-zinc-600">
+            {topPick.isFullConsensus
+              ? `回答した${topPick.count}人全員が参加できます`
+              : `${topPick.count}/${total}人が参加可能${topPick.absentees.length > 0 ? `（欠: ${topPick.absentees.join("、")}）` : ""}`}
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 space-y-3">
         {ranked.map(({ date, windows }) => {
