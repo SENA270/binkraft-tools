@@ -42,8 +42,22 @@ export default function ChouseiCreatePage() {
     setRangeEnd("");
   };
 
-  const removeDate = (d: string) => setDates((prev) => prev.filter((x) => x !== d));
   const clearDates = () => setDates([]);
+
+  // カレンダー上でのタップ: 選択済みなら外す、未選択なら追加(上限チェック)。過去日は不可。
+  const toggleDate = (d: string) =>
+    setDates((prev) => {
+      if (prev.includes(d)) {
+        setNote("");
+        return prev.filter((x) => x !== d);
+      }
+      if (prev.length >= MAX_DATES) {
+        setNote(`候補日は最大${MAX_DATES}日までです`);
+        return prev;
+      }
+      setNote("");
+      return [...prev, d].sort();
+    });
 
   const valid = title.trim() !== "" && dates.length > 0 && endHour > startHour;
 
@@ -116,32 +130,14 @@ export default function ChouseiCreatePage() {
             <p className="mt-1 text-[11px] text-zinc-400">終了日を空にすると1日だけ追加できます。</p>
             {note && <p className="mt-1 text-[11px] text-rose-500">{note}</p>}
 
+            <MonthCalendar selected={dates} onToggle={toggleDate} />
             {dates.length > 0 && (
-              <>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs font-bold text-zinc-500">{dates.length}日 選択中</span>
-                  <button onClick={clearDates} className="text-xs text-zinc-400 hover:text-zinc-600">
-                    すべて消す
-                  </button>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {dates.map((d) => (
-                    <span
-                      key={d}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-800"
-                    >
-                      {formatDateLabel(d)}
-                      <button
-                        onClick={() => removeDate(d)}
-                        className="text-indigo-400 hover:text-indigo-700"
-                        aria-label="削除"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-500">{dates.length}日 選択中</span>
+                <button onClick={clearDates} className="text-xs text-zinc-400 hover:text-zinc-600">
+                  すべて消す
+                </button>
+              </div>
             )}
           </div>
 
@@ -214,8 +210,67 @@ function formatYMD(d: Date): string {
   return `${y}-${m}-${dd}`;
 }
 
-function formatDateLabel(d: string): string {
-  const [y, m, day] = d.split("-").map(Number);
-  const wd = ["日", "月", "火", "水", "木", "金", "土"][new Date(y, m - 1, day).getDay()];
-  return `${m}/${day}(${wd})`;
+const WEEKDAY_HEADERS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** 候補日を月カレンダーで表示・タップで選択/解除。過去日は選べない。 */
+function MonthCalendar({ selected, onToggle }: { selected: string[]; onToggle: (d: string) => void }) {
+  const sel = new Set(selected);
+  const todayYmd = formatYMD(new Date());
+  const initial = selected.length > 0 ? [...selected].sort()[0] : todayYmd;
+  const [iy, im] = [Number(initial.slice(0, 4)), Number(initial.slice(5, 7)) - 1];
+  const [view, setView] = useState<{ y: number; m: number }>({ y: iy, m: im });
+
+  const startBlank = new Date(view.y, view.m, 1).getDay();
+  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < startBlank; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(formatYMD(new Date(view.y, view.m, d)));
+
+  const prevMonth = () => setView((v) => (v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }));
+  const nextMonth = () => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }));
+
+  return (
+    <div className="mt-1 rounded-lg border border-zinc-200 p-2">
+      <div className="flex items-center justify-between px-1">
+        <button type="button" onClick={prevMonth} className="px-3 py-1 text-lg text-zinc-500 hover:text-zinc-800">
+          ‹
+        </button>
+        <span className="text-sm font-bold text-zinc-700">
+          {view.y}年{view.m + 1}月
+        </span>
+        <button type="button" onClick={nextMonth} className="px-3 py-1 text-lg text-zinc-500 hover:text-zinc-800">
+          ›
+        </button>
+      </div>
+      <div className="mt-1 grid grid-cols-7 gap-0.5 text-center text-[10px] text-zinc-400">
+        {WEEKDAY_HEADERS.map((w) => (
+          <div key={w}>{w}</div>
+        ))}
+      </div>
+      <div className="mt-0.5 grid grid-cols-7 gap-0.5">
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} />;
+          const isSel = sel.has(d);
+          const isPast = d < todayYmd;
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={isPast}
+              onClick={() => onToggle(d)}
+              className={`aspect-square rounded-md text-sm font-bold transition ${
+                isPast
+                  ? "cursor-not-allowed text-zinc-300"
+                  : isSel
+                    ? "bg-indigo-600 text-white"
+                    : "text-zinc-700 hover:bg-indigo-50"
+              }`}
+            >
+              {Number(d.slice(8, 10))}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
