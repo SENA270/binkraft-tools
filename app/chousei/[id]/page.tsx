@@ -35,6 +35,8 @@ export default function ChouseiEventPage() {
   const [bulkNote, setBulkNote] = useState("");
   // まとめて設定の反映先曜日。index は getDay()(0=日..6=土)。既定は全曜日ON(=従来動作)。
   const [bulkDays, setBulkDays] = useState<boolean[]>(() => Array(7).fill(true));
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -56,6 +58,55 @@ export default function ChouseiEventPage() {
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
   }, []);
+
+  // Googleカレンダー連携から戻ってきたとき(?gcal=connected)に空き時間を取り込む。
+  useEffect(() => {
+    if (!event) return;
+    const sp = new URLSearchParams(window.location.search);
+    const gcal = sp.get("gcal");
+    if (!gcal) return;
+    window.history.replaceState(null, "", window.location.pathname); // クエリを消す
+    if (gcal === "error") {
+      setImportNote("カレンダー連携に失敗しました。もう一度お試しください。");
+      return;
+    }
+    if (gcal !== "connected") return;
+    const dates = event.config.candidateDates;
+    (async () => {
+      setImporting(true);
+      try {
+        const res = await fetch(`/api/chousei/google/freebusy?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+        if (!res.ok) {
+          setImportNote(
+            res.status === 401
+              ? "もう一度「カレンダーと連携して取り込む」を押してください。"
+              : "空き時間の取り込みに失敗しました。"
+          );
+          return;
+        }
+        const j = (await res.json()) as { byDate?: Record<string, { start: number; end: number }[]> };
+        const byDate = j.byDate ?? {};
+        setSelection((prev) => {
+          const next = { ...prev };
+          for (const date of dates) {
+            const ivs = byDate[date] ?? [];
+            next[date] =
+              ivs.length > 0
+                ? { unavailable: false, ranges: ivs.map((iv) => ({ start: String(iv.start), end: String(iv.end) })) }
+                : { unavailable: false, ranges: [{ start: "", end: "" }] };
+          }
+          return next;
+        });
+        const filled = dates.filter((d) => (byDate[d]?.length ?? 0) > 0).length;
+        setImportNote(`カレンダーから${filled}日分の空き時間を入れました。確認して調整してください。`);
+        setTab("input");
+      } catch {
+        setImportNote("空き時間の取り込みに失敗しました。");
+      } finally {
+        setImporting(false);
+      }
+    })();
+  }, [event, id]);
 
   if (loading) return <Centered>読み込み中...</Centered>;
 
@@ -199,6 +250,11 @@ export default function ChouseiEventPage() {
     await copyToClipboard();
   };
 
+  const importFromGoogle = () => {
+    setImporting(true); // リダイレクトするまでの体感用
+    window.location.href = `/api/chousei/google/start?id=${encodeURIComponent(id)}`;
+  };
+
   return (
     <main className="flex-1 bg-gradient-to-b from-indigo-50 to-white">
       <div className="mx-auto max-w-lg px-4 py-10">
@@ -256,6 +312,22 @@ export default function ChouseiEventPage() {
               placeholder="あなたの名前"
               className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-base text-zinc-900"
             />
+
+            {/* Googleカレンダー連携: 空き時間を自動取り込み(予定の中身は読まない) */}
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+              <p className="text-sm font-bold text-emerald-900">Googleカレンダーから取り込む</p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                空いている時間を自動で入力します（予定の中身は読みません。空き／予定ありだけ）。
+              </p>
+              <button
+                onClick={importFromGoogle}
+                disabled={importing}
+                className="mt-2 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {importing ? "取り込み中..." : "カレンダーと連携して取り込む"}
+              </button>
+              {importNote && <p className="mt-1 text-center text-xs text-emerald-700">{importNote}</p>}
+            </div>
 
             {/* まとめて設定: 全候補日に同じ時間帯を一括反映 */}
             <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
