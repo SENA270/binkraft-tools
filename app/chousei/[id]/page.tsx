@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { ParticipantResponse } from "../lib/types";
@@ -12,16 +12,10 @@ import {
   saveMyName,
   type StoredEvent,
 } from "../lib/storage";
-import {
-  rankDays,
-  slotAvailability,
-  slotCount,
-  minutesToHHMM,
-  slotsToIntervals,
-  intervalsToSelected,
-} from "../lib/overlap";
+import { rankDays, slotAvailability, slotCount, minutesToHHMM } from "../lib/overlap";
 
-type DaySelection = { unavailable: boolean; slots: boolean[] };
+type TimeRange = { start: string; end: string }; // 分を文字列で保持("" = 未選択)
+type DaySelection = { unavailable: boolean; ranges: TimeRange[] };
 
 export default function ChouseiEventPage() {
   const params = useParams<{ id: string }>();
@@ -54,9 +48,7 @@ export default function ChouseiEventPage() {
     })();
   }, [id]);
 
-  if (loading) {
-    return <Centered>読み込み中...</Centered>;
-  }
+  if (loading) return <Centered>読み込み中...</Centered>;
 
   if (!event) {
     return (
@@ -75,24 +67,34 @@ export default function ChouseiEventPage() {
   }
 
   const config = event.config;
-  const n = slotCount(config);
+  // 入力できる時刻の選択肢(分)。dayStart〜dayEnd を slotMinutes(=30) 刻みで。
+  const timeOptions: number[] = [];
+  for (let t = config.dayStart; t <= config.dayEnd; t += config.slotMinutes) timeOptions.push(t);
 
   const setDay = (date: string, next: Partial<DaySelection>) =>
     setSelection((prev) => ({ ...prev, [date]: { ...prev[date], ...next } }));
 
-  const applyPreset = (date: string, from: number, to: number, mode: "set" | "or" | "clear") => {
+  const setRangeField = (date: string, ri: number, field: "start" | "end", value: string) =>
     setSelection((prev) => {
-      const day = prev[date];
-      const slots = mode === "clear" ? new Array(n).fill(false) : day.slots.slice();
-      if (mode !== "clear") {
-        for (let i = 0; i < n; i++) {
-          const start = config.dayStart + i * config.slotMinutes;
-          if (start >= from && start < to) slots[i] = true;
-        }
-      }
-      return { ...prev, [date]: { ...day, slots } };
+      const ranges = prev[date].ranges.map((r, i) => (i === ri ? { ...r, [field]: value } : r));
+      return { ...prev, [date]: { ...prev[date], ranges } };
     });
-  };
+
+  const addRange = (date: string) =>
+    setSelection((prev) => ({
+      ...prev,
+      [date]: { ...prev[date], ranges: [...prev[date].ranges, { start: "", end: "" }] },
+    }));
+
+  const removeRange = (date: string, ri: number) =>
+    setSelection((prev) => {
+      const ranges = prev[date].ranges.filter((_, i) => i !== ri);
+      return { ...prev, [date]: { ...prev[date], ranges: ranges.length ? ranges : [{ start: "", end: "" }] } };
+    });
+
+  const setAllOk = (date: string) =>
+    setDay(date, { ranges: [{ start: String(config.dayStart), end: String(config.dayEnd) }] });
+  const clearRanges = (date: string) => setDay(date, { ranges: [{ start: "", end: "" }] });
 
   const submit = async () => {
     const trimmed = name.trim();
@@ -100,14 +102,18 @@ export default function ChouseiEventPage() {
     const byDate: ParticipantResponse["byDate"] = {};
     for (const date of config.candidateDates) {
       const day = selection[date];
-      byDate[date] = day.unavailable
-        ? { unavailable: true, intervals: [] }
-        : { unavailable: false, intervals: slotsToIntervals(day.slots, config) };
+      if (day.unavailable) {
+        byDate[date] = { unavailable: true, intervals: [] };
+      } else {
+        const intervals = day.ranges
+          .filter((r) => r.start !== "" && r.end !== "" && Number(r.end) > Number(r.start))
+          .map((r) => ({ start: Number(r.start), end: Number(r.end) }));
+        byDate[date] = { unavailable: false, intervals };
+      }
     }
     await upsertResponse(id, { name: trimmed, byDate });
     saveMyName(trimmed);
-    const resp = await getResponses(id);
-    setResponses(resp);
+    setResponses(await getResponses(id));
     setSaved(true);
     setTab("result");
     setTimeout(() => setSaved(false), 2500);
@@ -138,12 +144,11 @@ export default function ChouseiEventPage() {
 
         <button
           onClick={copyUrl}
-          className="mt-3 rounded-lg bg-white border border-indigo-200 px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 transition"
+          className="mt-3 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 transition"
         >
           {copied ? "コピーしました" : "このページのURLをコピーして共有"}
         </button>
 
-        {/* タブ */}
         <div className="mt-6 flex rounded-xl bg-zinc-100 p-1 text-sm font-bold">
           <button
             onClick={() => setTab("input")}
@@ -179,9 +184,7 @@ export default function ChouseiEventPage() {
                       <button
                         onClick={() => setDay(date, { unavailable: !day.unavailable })}
                         className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                          day.unavailable
-                            ? "bg-rose-500 text-white"
-                            : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                          day.unavailable ? "bg-rose-500 text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
                         }`}
                       >
                         × 終日ダメ
@@ -189,31 +192,37 @@ export default function ChouseiEventPage() {
                     </div>
 
                     {!day.unavailable && (
-                      <>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          <PresetBtn onClick={() => applyPreset(date, 0, 24 * 60, "set")}>
-                            全部OK
-                          </PresetBtn>
-                          <PresetBtn onClick={() => applyPreset(date, 12 * 60, 18 * 60, "or")}>
-                            午後
-                          </PresetBtn>
-                          <PresetBtn onClick={() => applyPreset(date, 18 * 60, 24 * 60, "or")}>
-                            夜
-                          </PresetBtn>
-                          <PresetBtn onClick={() => applyPreset(date, 0, 0, "clear")}>
-                            クリア
-                          </PresetBtn>
+                      <div className="mt-3 space-y-2">
+                        {day.ranges.map((r, ri) => (
+                          <div key={ri} className="flex items-center gap-2">
+                            <TimeSelect
+                              value={r.start}
+                              options={timeOptions.slice(0, -1)}
+                              placeholder="開始"
+                              onChange={(v) => setRangeField(date, ri, "start", v)}
+                            />
+                            <span className="text-zinc-400">〜</span>
+                            <TimeSelect
+                              value={r.end}
+                              options={timeOptions.slice(1)}
+                              placeholder="終了"
+                              onChange={(v) => setRangeField(date, ri, "end", v)}
+                            />
+                            <button
+                              onClick={() => removeRange(date, ri)}
+                              className="ml-1 text-zinc-300 hover:text-rose-500"
+                              aria-label="この時間帯を削除"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          <PresetBtn onClick={() => addRange(date)}>＋ 時間帯を追加</PresetBtn>
+                          <PresetBtn onClick={() => setAllOk(date)}>全部OK</PresetBtn>
+                          <PresetBtn onClick={() => clearRanges(date)}>クリア</PresetBtn>
                         </div>
-                        <p className="mt-3 text-xs text-zinc-400">
-                          なぞって範囲選択・タップで1コマ切替
-                        </p>
-                        <DragSlotGrid
-                          slots={day.slots}
-                          dayStart={config.dayStart}
-                          slotMinutes={config.slotMinutes}
-                          onChange={(next) => setDay(date, { slots: next })}
-                        />
-                      </>
+                      </div>
                     )}
                   </div>
                 );
@@ -236,12 +245,37 @@ export default function ChouseiEventPage() {
   );
 }
 
+function TimeSelect({
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  options: number[];
+  placeholder: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="flex-1 rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-900"
+    >
+      <option value="">{placeholder}</option>
+      {options.map((m) => (
+        <option key={m} value={String(m)}>
+          {minutesToHHMM(m)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function Results({ event, responses }: { event: StoredEvent; responses: ParticipantResponse[] }) {
   const config = event.config;
   const total = responses.length;
-  if (total === 0) {
-    return <p className="mt-8 text-center text-sm text-zinc-400">まだ回答がありません</p>;
-  }
+  if (total === 0) return <p className="mt-8 text-center text-sm text-zinc-400">まだ回答がありません</p>;
   const ranked = rankDays(responses, config);
   const n = slotCount(config);
 
@@ -274,7 +308,6 @@ function Results({ event, responses }: { event: StoredEvent; responses: Particip
                 )}
               </div>
 
-              {/* ヒートマップ */}
               <div className="mt-3 flex gap-px overflow-hidden rounded">
                 {Array.from({ length: n }, (_, i) => {
                   const c = counts[i];
@@ -285,10 +318,7 @@ function Results({ event, responses }: { event: StoredEvent; responses: Particip
                       key={i}
                       title={`${minutesToHHMM(start)} — ${c}/${total}人`}
                       className="h-6 flex-1"
-                      style={{
-                        backgroundColor:
-                          c === 0 ? "#f4f4f5" : `rgba(79,70,229,${0.2 + alpha * 0.8})`,
-                      }}
+                      style={{ backgroundColor: c === 0 ? "#f4f4f5" : `rgba(79,70,229,${0.2 + alpha * 0.8})` }}
                     />
                   );
                 })}
@@ -298,20 +328,15 @@ function Results({ event, responses }: { event: StoredEvent; responses: Particip
                 <span>{minutesToHHMM(config.dayEnd)}</span>
               </div>
 
-              {/* 窓 */}
               <div className="mt-3 space-y-1.5">
-                {windows.length === 0 && (
-                  <p className="text-sm text-zinc-400">条件に合う時間帯がありません</p>
-                )}
+                {windows.length === 0 && <p className="text-sm text-zinc-400">条件に合う時間帯がありません</p>}
                 {windows.map((w, i) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <span className="font-bold text-zinc-800">
                       {minutesToHHMM(w.start)}〜{minutesToHHMM(w.end)}
                     </span>
                     <span className="text-zinc-500">
-                      {w.isFullConsensus
-                        ? `全員(${w.count}人)`
-                        : `${w.count}人 / 欠: ${w.absentees.join("、")}`}
+                      {w.isFullConsensus ? `全員(${w.count}人)` : `${w.count}人 / 欠: ${w.absentees.join("、")}`}
                     </span>
                   </div>
                 ))}
@@ -335,78 +360,6 @@ function PresetBtn({ children, onClick }: { children: React.ReactNode; onClick: 
   );
 }
 
-// 時間スロットをなぞって範囲選択。タッチでも動くよう pointer + elementFromPoint で塗る。
-function DragSlotGrid({
-  slots,
-  dayStart,
-  slotMinutes,
-  onChange,
-}: {
-  slots: boolean[];
-  dayStart: number;
-  slotMinutes: number;
-  onChange: (next: boolean[]) => void;
-}) {
-  const modeRef = useRef<boolean | null>(null); // 塗る値(押した所の反対)
-  const slotsRef = useRef(slots);
-  slotsRef.current = slots;
-
-  useEffect(() => {
-    const end = () => {
-      modeRef.current = null;
-    };
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
-    return () => {
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
-    };
-  }, []);
-
-  const idxFromPoint = (x: number, y: number): number => {
-    const el = document.elementFromPoint(x, y) as HTMLElement | null;
-    const cell = el?.closest<HTMLElement>("[data-slot]");
-    return cell ? Number(cell.dataset.slot) : -1;
-  };
-
-  const paint = (i: number) => {
-    if (i < 0 || modeRef.current === null) return;
-    if (slotsRef.current[i] === modeRef.current) return;
-    const next = slotsRef.current.slice();
-    next[i] = modeRef.current;
-    onChange(next);
-  };
-
-  return (
-    <div
-      className="mt-2 grid grid-cols-4 gap-1.5 select-none sm:grid-cols-6"
-      style={{ touchAction: "none" }}
-      onPointerDown={(e) => {
-        const i = idxFromPoint(e.clientX, e.clientY);
-        if (i < 0) return;
-        modeRef.current = !slotsRef.current[i];
-        paint(i);
-      }}
-      onPointerMove={(e) => {
-        if (modeRef.current === null) return;
-        paint(idxFromPoint(e.clientX, e.clientY));
-      }}
-    >
-      {slots.map((on, i) => (
-        <div
-          key={i}
-          data-slot={i}
-          className={`rounded-md py-1.5 text-center text-xs font-medium ${
-            on ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-800"
-          }`}
-        >
-          {minutesToHHMM(dayStart + i * slotMinutes)}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function Centered({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex-1 bg-gradient-to-b from-indigo-50 to-white">
@@ -415,20 +368,19 @@ function Centered({ children }: { children: React.ReactNode }) {
   );
 }
 
-function buildSelection(
-  ev: StoredEvent,
-  mine: ParticipantResponse | undefined
-): Record<string, DaySelection> {
-  const n = slotCount(ev.config);
+function buildSelection(ev: StoredEvent, mine: ParticipantResponse | undefined): Record<string, DaySelection> {
   const result: Record<string, DaySelection> = {};
   for (const date of ev.config.candidateDates) {
     const day = mine?.byDate[date];
     if (day && day.unavailable) {
-      result[date] = { unavailable: true, slots: new Array(n).fill(false) };
-    } else if (day) {
-      result[date] = { unavailable: false, slots: intervalsToSelected(day.intervals, ev.config) };
+      result[date] = { unavailable: true, ranges: [{ start: "", end: "" }] };
+    } else if (day && day.intervals.length > 0) {
+      result[date] = {
+        unavailable: false,
+        ranges: day.intervals.map((iv) => ({ start: String(iv.start), end: String(iv.end) })),
+      };
     } else {
-      result[date] = { unavailable: false, slots: new Array(n).fill(false) };
+      result[date] = { unavailable: false, ranges: [{ start: "", end: "" }] };
     }
   }
   return result;
