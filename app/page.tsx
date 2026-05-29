@@ -2,6 +2,13 @@ import Link from "next/link";
 
 const tools = [
   {
+    href: "/chousei",
+    title: "日程の被り調整",
+    description: "候補日に「何時〜何時なら空いてる」を入れるだけ。全員の被ってる時間帯を自動で算出",
+    emoji: "",
+    color: "from-indigo-500 to-violet-600",
+  },
+  {
     href: "/commute",
     title: "通勤時間の生涯換算",
     description: "片道の通勤時間を入力するだけ。人生の何年を通勤に使ってる？",
