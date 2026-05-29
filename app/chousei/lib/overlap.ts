@@ -152,8 +152,7 @@ export function fullConsensusWindows(
 
 /**
  * ある日の「いちばん多くの人が出れる窓」を返す。
- * 全員OKがあればそれ。無ければ所要時間を満たす範囲で最大人数の窓(「N人なら〜」)。
- * 最多人数の窓が所要時間に満たない場合は人数を1つずつ下げて次善の窓を探す。
+ * 全員OKの窓があればそれ(複数可)。無ければ所要時間を満たす範囲で「最大人数が揃う窓」を1つ。
  */
 export function bestWindows(
   responses: ParticipantResponse[],
@@ -162,14 +161,63 @@ export function bestWindows(
 ): OverlapWindow[] {
   const total = responses.length;
   if (total === 0) return [];
+  const full = fullConsensusWindows(responses, date, config);
+  if (full.length > 0) return full;
+  const bw = bestPartialWindow(responses, date, config);
+  return bw ? [bw] : [];
+}
+
+/**
+ * 所要時間を満たす窓のうち、「窓全体で共通して空いている人」が最大になる窓を1つ返す。
+ * 同数なら長い窓、さらに同じなら早い時刻を優先。
+ * 全スロットの積集合を見るので、人によって空き時間が食い違っても各人の最長窓を正しく拾える。
+ */
+export function bestPartialWindow(
+  responses: ParticipantResponse[],
+  date: string,
+  config: EventConfig
+): OverlapWindow | null {
+  const total = responses.length;
+  if (total === 0) return null;
   const names = responses.map((r) => r.name);
   const slots = slotAvailability(responses, date, config);
-  const maxCount = slots.reduce((mx, s) => Math.max(mx, s.length), 0);
-  for (let c = maxCount; c >= 1; c--) {
-    const w = extractWindows(slots, date, config, total, c, names);
-    if (w.length) return w;
+  const required = config.requiredMinutes ?? config.slotMinutes;
+  const n = slots.length;
+  let best: { a: number; b: number; attendees: string[]; len: number } | null = null;
+
+  for (let a = 0; a < n; a++) {
+    let inter = slots[a].slice();
+    for (let b = a; b < n; b++) {
+      if (b > a) inter = intersect(inter, slots[b]);
+      if (inter.length === 0) break; // これ以上伸ばしても共通者は増えない
+      const start = slotRange(config, a).start;
+      const end = slotRange(config, b).end;
+      const len = end - start;
+      if (len < required) continue;
+      const better =
+        !best ||
+        inter.length > best.attendees.length ||
+        (inter.length === best.attendees.length && len > best.len) ||
+        (inter.length === best.attendees.length && len === best.len && a < best.a);
+      if (better) best = { a, b, attendees: inter.slice(), len };
+    }
   }
-  return [];
+
+  if (!best) return null;
+  const start = slotRange(config, best.a).start;
+  const end = slotRange(config, best.b).end;
+  const attendees = best.attendees;
+  const absentees = names.filter((x) => !attendees.includes(x));
+  return {
+    date,
+    start,
+    end,
+    count: attendees.length,
+    total,
+    attendees,
+    absentees,
+    isFullConsensus: attendees.length === total && total > 0,
+  };
 }
 
 /** 選択スロット(boolean配列)→ 時間帯[]。隣接スロットはまとめる。 */
