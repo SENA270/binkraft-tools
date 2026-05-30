@@ -29,8 +29,8 @@ export async function GET(req: Request) {
   if (!googleConfigured() || !sessionConfigured()) return back("error");
 
   try {
-    const token = await exchangeCodeForToken(code, loginCallbackUrl(req));
-    const user = await fetchUserInfo(token);
+    const { accessToken } = await exchangeCodeForToken(code, loginCallbackUrl(req));
+    const user = await fetchUserInfo(accessToken);
     const cookie = signSession({ email: user.email, name: user.name });
     const res = back("logged_in");
     res.cookies.set(SESSION_COOKIE_NAME, cookie, {

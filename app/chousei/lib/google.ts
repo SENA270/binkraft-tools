@@ -5,9 +5,8 @@
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 
-// 機微スコープ: calendar.events(読み書き)。Phase1.4以降の仮押さえ書き込み・削除に必要。
-// freebusyの取得もこのスコープでカバーされる(単一スコープに統一)。
-const SCOPE = "https://www.googleapis.com/auth/calendar.events";
+// カレンダー連携の機微スコープ。openid+email+profile も同時取得→連携と同時に身元(メール)も確定できる。
+const SCOPE = "openid email profile https://www.googleapis.com/auth/calendar.events";
 const LOGIN_SCOPE = "openid email profile"; // 軽い権限・テストユーザー外でも可
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
@@ -42,9 +41,9 @@ export function buildAuthUrl(redirectUri: string, state: string): string {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: SCOPE,
-    access_type: "online",
+    access_type: "offline", // refresh_token を取得(確定時のサーバ側削除に必要)
     include_granted_scopes: "true",
-    prompt: "consent",
+    prompt: "consent", // 再同意で確実に refresh_token を再発行
     state,
   });
   return `${AUTH_ENDPOINT}?${p.toString()}`;
@@ -76,7 +75,10 @@ export async function fetchUserInfo(accessToken: string): Promise<{ email: strin
   return { email: j.email, name: j.name };
 }
 
-export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<string> {
+export type TokenResult = { accessToken: string; refreshToken?: string };
+
+/** 認可コードを access_token + (任意で) refresh_token に交換。 */
+export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<TokenResult> {
   const res = await fetch(TOKEN_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -90,6 +92,25 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`token ${res.status}`);
+  const j = (await res.json()) as { access_token?: string; refresh_token?: string };
+  if (!j.access_token) throw new Error("no access_token");
+  return { accessToken: j.access_token, refreshToken: j.refresh_token };
+}
+
+/** 保存済み refresh_token から新しい access_token を取得(サーバ側で在席不要な操作に使う)。 */
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`refresh ${res.status}`);
   const j = (await res.json()) as { access_token?: string };
   if (!j.access_token) throw new Error("no access_token");
   return j.access_token;
