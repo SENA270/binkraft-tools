@@ -165,6 +165,30 @@ export async function verifyMaster(id: string, k: string | null): Promise<boolea
   }
 }
 
+// ── Google基本ログイン(クライアント側ヘルパー) ──
+export type LoggedInUser = { email: string; name?: string };
+
+/** 現在のログインユーザー(なければ null)。Cookie経由でサーバが検証する。 */
+export async function getLoggedInUser(): Promise<LoggedInUser | null> {
+  try {
+    const res = await fetch("/api/chousei/google/login/me", { cache: "no-store" });
+    if (!res.ok) return null;
+    const j = (await res.json()) as { user?: LoggedInUser | null };
+    return j.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** ログアウト(Cookieを失効させる)。 */
+export async function logout(): Promise<void> {
+  try {
+    await fetch("/api/chousei/google/login/logout", { method: "POST" });
+  } catch {
+    /* noop */
+  }
+}
+
 export function loadMyName(): string {
   if (!hasLS()) return "";
   return window.localStorage.getItem(MYNAME_KEY) ?? "";

@@ -6,9 +6,11 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 
 const SCOPE = "https://www.googleapis.com/auth/calendar.freebusy";
+const LOGIN_SCOPE = "openid email profile"; // 軽い権限・テストユーザー外でも可
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FREEBUSY_ENDPOINT = "https://www.googleapis.com/calendar/v3/freeBusy";
+const USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";
 
 export function googleConfigured(): boolean {
   return !!CLIENT_ID && !!CLIENT_SECRET;
@@ -22,9 +24,14 @@ export function baseUrl(req: Request): string {
   return `${proto}://${host}`;
 }
 
-/** Google Cloud に登録したリダイレクトURIと一致させる。 */
+/** Google Cloud に登録したリダイレクトURI(カレンダー連携)と一致させる。 */
 export function callbackUrl(req: Request): string {
   return `${baseUrl(req)}/api/chousei/google/callback`;
+}
+
+/** ログイン(軽い権限)用の別ルートのリダイレクトURI。 */
+export function loginCallbackUrl(req: Request): string {
+  return `${baseUrl(req)}/api/chousei/google/login/callback`;
 }
 
 export function buildAuthUrl(redirectUri: string, state: string): string {
@@ -39,6 +46,32 @@ export function buildAuthUrl(redirectUri: string, state: string): string {
     state,
   });
   return `${AUTH_ENDPOINT}?${p.toString()}`;
+}
+
+/** ログイン(openid+email+profile)用の認可URL。テストユーザー外でも可。 */
+export function buildLoginAuthUrl(redirectUri: string, state: string): string {
+  const p = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: LOGIN_SCOPE,
+    access_type: "online",
+    state,
+    prompt: "select_account", // 別アカウントへの切替を容易に
+  });
+  return `${AUTH_ENDPOINT}?${p.toString()}`;
+}
+
+/** アクセストークンから userinfo を取得(メール・名前)。 */
+export async function fetchUserInfo(accessToken: string): Promise<{ email: string; name?: string }> {
+  const res = await fetch(USERINFO_ENDPOINT, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`userinfo ${res.status}`);
+  const j = (await res.json()) as { email?: string; name?: string };
+  if (!j.email) throw new Error("no email");
+  return { email: j.email, name: j.name };
 }
 
 export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<string> {

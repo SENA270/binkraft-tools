@@ -14,6 +14,7 @@ export type ParticipantResponse = {
   name: string;
   byDate: Record<string, DayAvailability>;
   comment?: string; // 任意のひとこと
+  email?: string; // Googleログインで取得したメール(任意・招待用)
 };
 
 /** イベント設定(主催者が作る)。 */

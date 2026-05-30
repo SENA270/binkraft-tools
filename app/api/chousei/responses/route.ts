@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const KEY = (id: string) => `chousei:responses:${id}`;
 
-type ParticipantResponse = { name: string; byDate: Record<string, unknown>; comment?: string };
+type ParticipantResponse = { name: string; byDate: Record<string, unknown>; comment?: string; email?: string };
 
 async function readList(id: string): Promise<ParticipantResponse[]> {
   const raw = await kvGet(KEY(id));

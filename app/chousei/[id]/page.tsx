@@ -13,8 +13,11 @@ import {
   setConfirmed,
   isMaster,
   verifyMaster,
+  getLoggedInUser,
+  logout,
   type StoredEvent,
   type ConfirmedSlot,
+  type LoggedInUser,
 } from "../lib/storage";
 import { rankDays, slotAvailability, slotCount, minutesToHHMM } from "../lib/overlap";
 
@@ -45,6 +48,8 @@ export default function ChouseiEventPage() {
   const [master, setMaster] = useState(false);
   const [adminKey, setAdminKey] = useState<string | null>(null);
   const [masterCopied, setMasterCopied] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
+  const [loginNote, setLoginNote] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -66,12 +71,30 @@ export default function ChouseiEventPage() {
 
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
-    const k = new URLSearchParams(window.location.search).get("k");
+    const params = new URLSearchParams(window.location.search);
+    const k = params.get("k");
     setAdminKey(k);
+    // ?login=... を検出し、URLからは消してメモだけ残す。
+    const loginParam = params.get("login");
+    if (loginParam) {
+      // 既存の ?k= は維持。?login= だけ落とす。
+      const next = new URLSearchParams(params);
+      next.delete("login");
+      const qs = next.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+      if (loginParam === "logged_in") setLoginNote("Googleログインしました。招待を受け取れます。");
+      if (loginParam === "error") setLoginNote("ログインに失敗しました。もう一度お試しください。");
+    }
     // サーバ照合(新方式) を試し、なければ旧方式の localStorage にフォールバック。
     (async () => {
       const ok = await verifyMaster(id, k);
       setMaster(ok || isMaster(id));
+      const u = await getLoggedInUser();
+      setLoggedInUser(u);
+      if (u && u.name) {
+        // 名前欄が空なら Google のプロフィール名を初期セット(ユーザは編集可)。
+        setName((prev) => (prev.trim() === "" ? u.name! : prev));
+      }
     })();
   }, [id]);
 
@@ -230,7 +253,12 @@ export default function ChouseiEventPage() {
         byDate[date] = { unavailable: false, intervals };
       }
     }
-    await upsertResponse(id, { name: trimmed, byDate, comment: comment.trim() || undefined });
+    await upsertResponse(id, {
+      name: trimmed,
+      byDate,
+      comment: comment.trim() || undefined,
+      email: loggedInUser?.email,
+    });
     saveMyName(trimmed);
     setResponses(await getResponses(id));
     setSaved(true);
@@ -290,6 +318,16 @@ export default function ChouseiEventPage() {
   const importFromGoogle = () => {
     setImporting(true); // リダイレクトするまでの体感用
     window.location.href = `/api/chousei/google/start?id=${encodeURIComponent(id)}`;
+  };
+
+  const loginWithGoogle = () => {
+    window.location.href = `/api/chousei/google/login/start?id=${encodeURIComponent(id)}`;
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setLoggedInUser(null);
+    setLoginNote("ログアウトしました。");
   };
 
   const confirmSlot = async (slot: ConfirmedSlot | null) => {
@@ -430,6 +468,34 @@ export default function ChouseiEventPage() {
                 使い方を見る（新しいタブで開く）
               </Link>
             </div>
+
+            {loggedInUser ? (
+              <div className="mb-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                <p className="text-xs font-bold text-green-900">
+                  ログイン中: <span className="text-zinc-700">{loggedInUser.email}</span>
+                </p>
+                <p className="mt-0.5 text-[11px] text-green-700">
+                  確定したらこのアドレスに招待が届きます。
+                </p>
+                <button
+                  onClick={handleLogout}
+                  className="mt-1 text-[11px] text-zinc-500 hover:text-rose-500 hover:underline"
+                >
+                  別のアカウントに切替 / ログアウト
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={loginWithGoogle}
+                className="mb-3 w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-50"
+              >
+                Googleでログイン
+                <span className="ml-1 text-xs font-normal text-zinc-500">（招待を受け取るため・任意）</span>
+              </button>
+            )}
+            {loginNote && (
+              <p className="mb-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">{loginNote}</p>
+            )}
 
             <input
               type="text"
