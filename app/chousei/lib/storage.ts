@@ -35,6 +35,11 @@ export function generateId(): string {
   return (Math.random().toString(36) + Math.random().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 12);
 }
 
+/** マスター鍵の照合(純関数・テスト可)。両方が文字列で完全一致なら true。 */
+export function adminKeyMatches(stored: string | undefined | null, provided: string | undefined | null): boolean {
+  return typeof stored === "string" && typeof provided === "string" && stored.length > 0 && stored === provided;
+}
+
 /** マスター鍵(32文字hex=128bit)。URLに乗せるが、知らない者は推測不能。 */
 export function generateAdminKey(): string {
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
