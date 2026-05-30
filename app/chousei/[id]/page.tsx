@@ -371,6 +371,17 @@ export default function ChouseiEventPage() {
 
         {tab === "input" ? (
           <div className="mt-6">
+            <div className="mb-2 text-right">
+              <Link
+                href="/chousei/guide"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-zinc-400 hover:text-indigo-600 hover:underline"
+              >
+                使い方を見る（新しいタブで開く）
+              </Link>
+            </div>
+
             <input
               type="text"
               value={name}
