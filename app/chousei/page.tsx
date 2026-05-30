@@ -86,7 +86,12 @@ export default function ChouseiCreatePage() {
           <Link href="/" className="text-sm text-zinc-400 hover:underline">
             ← ツール一覧
           </Link>
-          <Link href="/chousei/guide" className="text-sm font-bold text-indigo-600 hover:underline">
+          <Link
+            href="/chousei/guide"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-bold text-indigo-600 hover:underline"
+          >
             使い方
           </Link>
         </div>

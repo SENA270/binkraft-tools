@@ -282,7 +282,12 @@ export default function ChouseiEventPage() {
           <Link href="/chousei" className="text-sm text-zinc-400 hover:underline">
             ← 新規作成
           </Link>
-          <Link href="/chousei/guide" className="text-sm font-bold text-indigo-600 hover:underline">
+          <Link
+            href="/chousei/guide"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-bold text-indigo-600 hover:underline"
+          >
             使い方
           </Link>
         </div>
