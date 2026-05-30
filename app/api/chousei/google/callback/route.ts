@@ -1,4 +1,5 @@
 // Googleカレンダー連携: 認証後のコールバック。
+// state は HMAC署名済み(start で signState)→ ここで verifyState、改ざん/期限切れは error 扱い(CSRF対策)。
 // access_token を gcal_token Cookie に短時間だけ保持。
 // refresh_token は AES-256-GCM で暗号化して KV に保存(確定時のサーバ側削除に必要・Phase1.6で使用)。
 // 連携と同時に身元(メール)も確定するため、gauth_session Cookie もセット(Phase1.2の login と同じ扱い)。
@@ -11,6 +12,7 @@ import {
   baseUrl,
 } from "../../../../chousei/lib/google";
 import { saveRefreshToken, refreshStoreConfigured } from "../../../../chousei/lib/refresh";
+import { verifyState } from "../../../../chousei/lib/oauth-state";
 import {
   sessionConfigured,
   signSession,
@@ -23,36 +25,63 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const id = url.searchParams.get("state") ?? "";
+  const stateRaw = url.searchParams.get("state");
   const code = url.searchParams.get("code");
   const oauthErr = url.searchParams.get("error");
 
-  const back = (status: "connected" | "error") =>
-    NextResponse.redirect(`${baseUrl(req)}/chousei/${encodeURIComponent(id)}?gcal=${status}`);
+  // state を先に検証(改ざん/期限切れは即 error)。id は検証成功後にのみ使う。
+  const verified = verifyState(stateRaw);
+  const id = verified?.id ?? "";
 
-  if (oauthErr || !code || !id || !googleConfigured()) return back("error");
+  const back = (status: "connected" | "error") => {
+    // 検証失敗時は id が空 → トップへフォールバック
+    const target = id
+      ? `${baseUrl(req)}/chousei/${encodeURIComponent(id)}?gcal=${status}`
+      : `${baseUrl(req)}/chousei?gcal=${status}`;
+    return NextResponse.redirect(target);
+  };
+
+  if (!verified) {
+    console.error("[gcal/callback] state verification failed");
+    return back("error");
+  }
+  if (oauthErr) {
+    console.error("[gcal/callback] oauth error:", oauthErr);
+    return back("error");
+  }
+  if (!code || !googleConfigured()) {
+    console.error("[gcal/callback] missing code or google unconfigured");
+    return back("error");
+  }
 
   try {
     const { accessToken, refreshToken } = await exchangeCodeForToken(code, callbackUrl(req));
 
     // 身元取得(連携時に email を確定 → ログイン状態も同時に確立)。
-    let email: string | null = null;
+    // ここが失敗すると refresh token を email キーで保存できないため、連携失敗扱いにする。
+    let email: string;
     let name: string | undefined;
     try {
       const u = await fetchUserInfo(accessToken);
       email = u.email;
       name = u.name;
-    } catch {
-      /* userinfo失敗は致命的ではない(後段でフォールバック) */
+    } catch (e) {
+      console.error("[gcal/callback] fetchUserInfo failed:", e);
+      return back("error");
     }
 
     // refresh token があれば暗号化保存(在席不要な削除/招待の土台)。
-    if (refreshToken && email && refreshStoreConfigured()) {
+    // 保存自体の失敗は連携を止めないが、原因追跡のためログは必ず残す。
+    if (refreshToken && refreshStoreConfigured()) {
       try {
         await saveRefreshToken(email, refreshToken);
-      } catch {
-        /* 保存失敗は許容(連携自体は成立する) */
+      } catch (e) {
+        console.error("[gcal/callback] saveRefreshToken failed:", e);
       }
+    } else if (!refreshToken) {
+      // refresh_token が来ない = prompt=consent でも再発行されない異常ケース。
+      // 既に同じユーザーで保存済みなら問題ないが、初回連携時は Phase1.6 で困るため記録。
+      console.warn("[gcal/callback] no refresh_token returned by Google");
     }
 
     const res = back("connected");
@@ -67,7 +96,7 @@ export async function GET(req: Request) {
     });
 
     // 2) ログインCookie(身元・30日)。Phase1.2 のログインと同じ扱い。
-    if (email && sessionConfigured()) {
+    if (sessionConfigured()) {
       try {
         const sessCookie = signSession({ email, name });
         res.cookies.set(SESSION_COOKIE_NAME, sessCookie, {
@@ -77,13 +106,14 @@ export async function GET(req: Request) {
           maxAge: SESSION_MAX_AGE_SEC,
           path: "/",
         });
-      } catch {
-        /* session 設定失敗は致命的ではない */
+      } catch (e) {
+        console.error("[gcal/callback] signSession failed:", e);
       }
     }
 
     return res;
-  } catch {
+  } catch (e) {
+    console.error("[gcal/callback] unexpected error:", e);
     return back("error");
   }
 }

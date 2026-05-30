@@ -97,7 +97,25 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
   return { accessToken: j.access_token, refreshToken: j.refresh_token };
 }
 
-/** 保存済み refresh_token から新しい access_token を取得(サーバ側で在席不要な操作に使う)。 */
+/**
+ * refresh_token が失効/取り消し済みの場合に投げられるエラー。
+ * 呼び出し側で isRefreshExpiredError を使い、保存トークン削除+再連携誘導を行う。
+ */
+export class RefreshExpiredError extends Error {
+  constructor(message = "refresh token expired or revoked") {
+    super(message);
+    this.name = "RefreshExpiredError";
+  }
+}
+
+export function isRefreshExpiredError(e: unknown): e is RefreshExpiredError {
+  return e instanceof RefreshExpiredError;
+}
+
+/**
+ * 保存済み refresh_token から新しい access_token を取得(サーバ側で在席不要な操作に使う)。
+ * 失効/取り消しは RefreshExpiredError として識別(invalid_grant 検知)。
+ */
 export async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch(TOKEN_ENDPOINT, {
     method: "POST",
@@ -110,7 +128,14 @@ export async function refreshAccessToken(refreshToken: string): Promise<string> 
     }),
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`refresh ${res.status}`);
+  if (!res.ok) {
+    // 400 invalid_grant = refresh token 失効/取り消し(ユーザー側でアクセス解除した等)
+    if (res.status === 400) {
+      const body = await res.text().catch(() => "");
+      if (body.includes("invalid_grant")) throw new RefreshExpiredError();
+    }
+    throw new Error(`refresh ${res.status}`);
+  }
   const j = (await res.json()) as { access_token?: string };
   if (!j.access_token) throw new Error("no access_token");
   return j.access_token;

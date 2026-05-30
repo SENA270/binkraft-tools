@@ -29,17 +29,31 @@ describe("crypto(AES-256-GCM)", () => {
 
   it("改ざんした暗号文は復号できない(認証タグ検証)", () => {
     const ct = encrypt("payload");
-    const [iv, body, tag] = ct.split(".");
+    const [ver, iv, body, tag] = ct.split(".");
     // ciphertext を1文字書き換え
     const bodyBuf = Buffer.from(body, "base64url");
     bodyBuf[0] ^= 0xff;
-    const tampered = `${iv}.${bodyBuf.toString("base64url")}.${tag}`;
+    const tampered = `${ver}.${iv}.${bodyBuf.toString("base64url")}.${tag}`;
     expect(() => decrypt(tampered)).toThrow();
   });
 
   it("不正な形式は復号できない", () => {
     expect(() => decrypt("garbage")).toThrow();
     expect(() => decrypt("a.b")).toThrow();
+    expect(() => decrypt("a.b.c")).toThrow(); // 旧3パート形式は version 必須化で拒否
+  });
+
+  it("version prefix v1 が付く(将来の鍵ローテーション準備)", () => {
+    const ct = encrypt("hello");
+    expect(ct.startsWith("v1.")).toBe(true);
+    expect(ct.split(".").length).toBe(4);
+  });
+
+  it("未知のバージョンは復号できない", () => {
+    const ct = encrypt("payload");
+    const parts = ct.split(".");
+    parts[0] = "v99"; // 未対応バージョンに改ざん
+    expect(() => decrypt(parts.join("."))).toThrow(/unknown key version/);
   });
 
   it("空文字も暗号化できる(端っこ)", () => {
