@@ -5,7 +5,9 @@
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 
-const SCOPE = "https://www.googleapis.com/auth/calendar.freebusy";
+// 機微スコープ: calendar.events(読み書き)。Phase1.4以降の仮押さえ書き込み・削除に必要。
+// freebusyの取得もこのスコープでカバーされる(単一スコープに統一)。
+const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const LOGIN_SCOPE = "openid email profile"; // 軽い権限・テストユーザー外でも可
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
