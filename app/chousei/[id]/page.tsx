@@ -12,6 +12,7 @@ import {
   saveMyName,
   setConfirmed,
   isMaster,
+  verifyMaster,
   type StoredEvent,
   type ConfirmedSlot,
 } from "../lib/storage";
@@ -42,6 +43,8 @@ export default function ChouseiEventPage() {
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState("");
   const [master, setMaster] = useState(false);
+  const [adminKey, setAdminKey] = useState<string | null>(null);
+  const [masterCopied, setMasterCopied] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -63,7 +66,13 @@ export default function ChouseiEventPage() {
 
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
-    setMaster(isMaster(id));
+    const k = new URLSearchParams(window.location.search).get("k");
+    setAdminKey(k);
+    // サーバ照合(新方式) を試し、なければ旧方式の localStorage にフォールバック。
+    (async () => {
+      const ok = await verifyMaster(id, k);
+      setMaster(ok || isMaster(id));
+    })();
   }, [id]);
 
   // Googleカレンダー連携から戻ってきたとき(?gcal=connected)に空き時間を取り込む。
@@ -229,9 +238,18 @@ export default function ChouseiEventPage() {
     setTimeout(() => setSaved(false), 2500);
   };
 
+  // 共有用URL = マスター鍵を除いた素のリンク(参加者用)。
+  const shareableUrl = () =>
+    typeof window === "undefined" ? "" : `${window.location.origin}/chousei/${id}`;
+  // マスター用URL = 鍵付き(自分専用)。
+  const masterUrl = () =>
+    typeof window === "undefined" || !adminKey
+      ? ""
+      : `${window.location.origin}/chousei/${id}?k=${encodeURIComponent(adminKey)}`;
+
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareableUrl());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -241,7 +259,7 @@ export default function ChouseiEventPage() {
 
   // ワンタップ共有: スマホはネイティブ共有シート(LINE/メール等)、非対応(主にPC)はコピーへ。
   const shareUrl = async () => {
-    const url = window.location.href;
+    const url = shareableUrl();
     if (canShare) {
       try {
         await navigator.share({
@@ -255,6 +273,18 @@ export default function ChouseiEventPage() {
       }
     }
     await copyToClipboard();
+  };
+
+  const copyMasterUrl = async () => {
+    const url = masterUrl();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setMasterCopied(true);
+      setTimeout(() => setMasterCopied(false), 2000);
+    } catch {
+      /* noop */
+    }
   };
 
   const importFromGoogle = () => {
@@ -348,6 +378,30 @@ export default function ChouseiEventPage() {
         <p className="mt-1.5 text-xs text-zinc-400">
           このリンクを参加者に送ると、みんなが予定を入力できます。
         </p>
+
+        {master && adminKey && (
+          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <p className="text-xs font-bold text-amber-900">マスター用URL（自分専用・人に渡さない）</p>
+            <p className="mt-0.5 text-[11px] text-amber-700">
+              このURLには確定/招待操作の管理権限が付いています。共有は上の「共有」ボタン（鍵なし）からどうぞ。
+            </p>
+            <div className="mt-2 flex items-center gap-1.5">
+              <input
+                type="text"
+                readOnly
+                value={masterUrl()}
+                onFocus={(e) => e.currentTarget.select()}
+                className="flex-1 min-w-0 truncate rounded border border-amber-300 bg-white px-2 py-1 text-xs text-zinc-700"
+              />
+              <button
+                onClick={copyMasterUrl}
+                className="shrink-0 rounded bg-amber-600 px-2 py-1 text-xs font-bold text-white hover:bg-amber-700"
+              >
+                {masterCopied ? "コピーOK" : "コピー"}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 flex rounded-xl bg-zinc-100 p-1 text-sm font-bold">
           <button

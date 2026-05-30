@@ -15,6 +15,7 @@ export type StoredEvent = {
   config: EventConfig;
   createdAt: number;
   confirmed?: ConfirmedSlot | null;
+  adminKey?: string; // マスター操作の認証用秘密鍵。新規イベントに付与・GETレスポンスからは除外される。
 };
 
 const EVENT_KEY = (id: string) => `chousei:event:${id}`;
@@ -32,6 +33,20 @@ export function generateId(): string {
     return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
   }
   return (Math.random().toString(36) + Math.random().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 12);
+}
+
+/** マスター鍵(32文字hex=128bit)。URLに乗せるが、知らない者は推測不能。 */
+export function generateAdminKey(): string {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  return (Math.random().toString(36) + Math.random().toString(36) + Math.random().toString(36))
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 32);
 }
 
 // ── localStorage フォールバック(従来実装) ──
@@ -125,12 +140,24 @@ export async function setConfirmed(id: string, confirmed: ConfirmedSlot | null):
   }
 }
 
-/** イベント作成者(マスター)を作成者の端末に記録/判定する(ローカル簡易判定)。 */
+/** イベント作成者(マスター)を作成者の端末に記録/判定する(ローカル簡易判定)。旧イベントのフォールバック用。 */
 export function markMaster(id: string): void {
   if (hasLS()) window.localStorage.setItem(MASTER_KEY(id), "1");
 }
 export function isMaster(id: string): boolean {
   return hasLS() && window.localStorage.getItem(MASTER_KEY(id)) === "1";
+}
+
+/** サーバー側でマスター鍵を照合(サーバ保証のマスター判定)。鍵未指定/不一致は false。 */
+export async function verifyMaster(id: string, k: string | null): Promise<boolean> {
+  if (!k) return false;
+  try {
+    const res = await apiPost("/api/chousei/verify-master", { id, k });
+    const j = (await res.json()) as { ok?: boolean };
+    return !!j.ok;
+  } catch {
+    return false;
+  }
 }
 
 export function loadMyName(): string {

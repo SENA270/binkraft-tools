@@ -13,7 +13,11 @@ export async function GET(req: Request) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   try {
     const raw = await kvGet(KEY(id));
-    return NextResponse.json({ event: raw ? JSON.parse(raw) : null });
+    if (!raw) return NextResponse.json({ event: null });
+    const ev = JSON.parse(raw) as Record<string, unknown>;
+    // マスター鍵はクライアントに渡さない(/verify-master でのみ照合)。
+    if ("adminKey" in ev) delete ev.adminKey;
+    return NextResponse.json({ event: ev });
   } catch {
     return NextResponse.json({ error: "kv_error" }, { status: 502 });
   }

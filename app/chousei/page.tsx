@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { EventConfig } from "./lib/types";
-import { generateId, saveEvent, markMaster } from "./lib/storage";
+import { generateId, generateAdminKey, saveEvent, markMaster } from "./lib/storage";
 
 const SLOT_MINUTES = 30; // 30分刻み固定
 const MAX_DATES = 62; // 候補日の上限(範囲指定の暴発防止)
@@ -65,15 +65,16 @@ export default function ChouseiCreatePage() {
     if (!valid || creating) return;
     setCreating(true);
     const id = generateId();
+    const adminKey = generateAdminKey();
     const config: EventConfig = {
       candidateDates: dates,
       dayStart: startHour * 60,
       dayEnd: endHour * 60,
       slotMinutes: SLOT_MINUTES,
     };
-    await saveEvent({ id, title: title.trim(), config, createdAt: Date.now() });
-    markMaster(id); // 作成者=マスターとして端末に記録
-    router.push(`/chousei/${id}`);
+    await saveEvent({ id, title: title.trim(), config, createdAt: Date.now(), adminKey });
+    markMaster(id); // 旧端末判定のフォールバック用にも保存
+    router.push(`/chousei/${id}?k=${encodeURIComponent(adminKey)}`);
   };
 
   return (
