@@ -104,6 +104,12 @@ export default function ChouseiGuidePage() {
             イベントを作る
           </Link>
         </div>
+
+        <div className="mt-8 text-center text-xs text-zinc-400">
+          <Link href="/chousei/privacy" className="hover:text-indigo-600 hover:underline">
+            プライバシーポリシー
+          </Link>
+        </div>
       </div>
     </main>
   );
