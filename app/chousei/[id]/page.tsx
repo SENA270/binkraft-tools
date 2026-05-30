@@ -278,19 +278,9 @@ export default function ChouseiEventPage() {
   return (
     <main className="flex-1 bg-gradient-to-b from-indigo-50 to-white">
       <div className="mx-auto max-w-lg px-4 py-10">
-        <div className="flex items-center justify-between">
-          <Link href="/chousei" className="text-sm text-zinc-400 hover:underline">
-            ← 新規作成
-          </Link>
-          <Link
-            href="/chousei/guide"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-bold text-indigo-600 hover:underline"
-          >
-            使い方
-          </Link>
-        </div>
+        <Link href="/chousei" className="text-sm text-zinc-400 hover:underline">
+          ← 新規作成
+        </Link>
 
         <div className="mt-4 flex items-center gap-2">
           <h1 className="text-2xl font-black text-zinc-900">{event.title}</h1>
