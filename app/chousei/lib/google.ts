@@ -95,6 +95,48 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
   return j.access_token;
 }
 
+const EVENTS_INSERT = (calendarId: string) =>
+  `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+const EVENTS_DELETE = (calendarId: string, eventId: string) =>
+  `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
+
+export type CalendarEventInsert = {
+  summary: string;
+  start: { dateTime: string; timeZone: string };
+  end: { dateTime: string; timeZone: string };
+  extendedProperties?: { private: Record<string, string> };
+  reminders?: { useDefault: boolean };
+};
+
+/** primary カレンダーにイベントを作成。返り値はイベントID。 */
+export async function createCalendarEvent(
+  accessToken: string,
+  ev: CalendarEventInsert
+): Promise<string> {
+  const res = await fetch(EVENTS_INSERT("primary"), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(ev),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`events.insert ${res.status}`);
+  const j = (await res.json()) as { id?: string };
+  if (!j.id) throw new Error("no event id returned");
+  return j.id;
+}
+
+/** primary カレンダーのイベントを削除。404/410(既に消えてる)は許容。 */
+export async function deleteCalendarEvent(accessToken: string, eventId: string): Promise<void> {
+  const res = await fetch(EVENTS_DELETE("primary", eventId), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    throw new Error(`events.delete ${res.status}`);
+  }
+}
+
 export type BusyBlock = { start: string; end: string }; // RFC3339
 
 /** primary カレンダーの busy 区間(予定あり)を返す。中身は読まない。 */

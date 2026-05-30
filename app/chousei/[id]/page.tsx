@@ -50,6 +50,7 @@ export default function ChouseiEventPage() {
   const [masterCopied, setMasterCopied] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
   const [loginNote, setLoginNote] = useState("");
+  const [tentativeNote, setTentativeNote] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -259,6 +260,39 @@ export default function ChouseiEventPage() {
       comment: comment.trim() || undefined,
       email: loggedInUser?.email,
     });
+
+    // 仮押さえ書き込み(ログイン&カレンダー連携している人のみ。失敗しても回答送信自体は成功)
+    if (loggedInUser) {
+      try {
+        const res = await fetch("/api/chousei/google/tentative", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, response: { name: trimmed, byDate } }),
+        });
+        if (res.ok) {
+          const j = (await res.json()) as {
+            created?: number;
+            skipped?: number;
+            removed?: number;
+            reason?: string;
+          };
+          if (typeof j.created === "number" && j.created > 0) {
+            setTentativeNote(
+              `カレンダーに仮押さえを${j.created}件入れました${
+                j.skipped && j.skipped > 0 ? `（${j.skipped}件は既存予定と重なるためスキップ）` : ""
+              }。他のツールで仮押さえしてる場合は、その主催者に連絡してください。`
+            );
+          } else if (typeof j.skipped === "number" && j.skipped > 0) {
+            setTentativeNote(
+              `あなたの空き時間はすべて既存予定と重なるため、カレンダーへの仮押さえはスキップしました。`
+            );
+          }
+        }
+      } catch {
+        /* 仮押さえは best-effort */
+      }
+    }
+
     saveMyName(trimmed);
     setResponses(await getResponses(id));
     setSaved(true);
@@ -441,6 +475,18 @@ export default function ChouseiEventPage() {
           </div>
         )}
 
+        {tentativeNote && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+            <p className="text-xs font-bold text-emerald-900">{tentativeNote}</p>
+            <button
+              onClick={() => setTentativeNote("")}
+              className="mt-1 text-[11px] text-zinc-500 hover:text-zinc-700"
+            >
+              閉じる
+            </button>
+          </div>
+        )}
+
         <div className="mt-6 flex rounded-xl bg-zinc-100 p-1 text-sm font-bold">
           <button
             onClick={() => setTab("input")}
@@ -519,6 +565,10 @@ export default function ChouseiEventPage() {
               </p>
               <p className="mt-0.5 text-xs text-amber-700">
                 ※現在は招待制です。使いたい人はマスターに連絡してください。
+              </p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                連携すると、回答送信時にあなたの空き時間が「（仮）」予定としてカレンダーに自動で入ります（既存予定と重なる時間はスキップ・通知音オフ）。
+                マスターの確定で自動削除されます。他のツールで同じ時間を仮押さえしてる場合は、その主催者に連絡してください。
               </p>
               <button
                 onClick={importFromGoogle}
