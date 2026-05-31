@@ -17,12 +17,18 @@ export function googleConfigured(): boolean {
   return !!CLIENT_ID && !!CLIENT_SECRET;
 }
 
-/** リバースプロキシ(Vercel)越しでも正しい公開オリジンを得る。 */
+/**
+ * リバースプロキシ(Vercel)越しでも正しい公開オリジンを得る。
+ * 優先順位:
+ *   1. NEXT_PUBLIC_BASE_URL(明示設定された公開URL) — SSRF/Host injection 完全防御
+ *   2. req.url の origin(NEXT_PUBLIC_BASE_URL 未設定時のフォールバック)
+ * x-forwarded-* は信頼しない(Stage1.5.2: 攻撃者が任意 Host を注入できる経路を排除)。
+ */
 export function baseUrl(req: Request): string {
+  const fromEnv = process.env.NEXT_PUBLIC_BASE_URL;
+  if (fromEnv && /^https?:\/\//.test(fromEnv)) return fromEnv.replace(/\/$/, "");
   const url = new URL(req.url);
-  const host = req.headers.get("x-forwarded-host") ?? url.host;
-  const proto = req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
-  return `${proto}://${host}`;
+  return `${url.protocol.replace(":", "")}://${url.host}`;
 }
 
 /** Google Cloud に登録したリダイレクトURI(カレンダー連携)と一致させる。 */

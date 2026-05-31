@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { fetchFreeBusy } from "../../../../chousei/lib/google";
 import { kvGet, kvConfigured } from "../../../../chousei/lib/kv";
+import { readCookie } from "../../../../chousei/lib/request";
 import { freeIntervalsForDay } from "../../../../chousei/lib/freebusy";
 import { jstIso, busyToDayMinutes } from "../../../../chousei/lib/time";
 import type { EventConfig, Interval } from "../../../../chousei/lib/types";
@@ -13,17 +14,6 @@ export const dynamic = "force-dynamic";
 const EVENT_KEY = (id: string) => `chousei:event:${id}`;
 
 type StoredEvent = { id: string; title: string; config: EventConfig; createdAt: number };
-
-function readCookie(req: Request, name: string): string | null {
-  const header = req.headers.get("cookie");
-  if (!header) return null;
-  for (const part of header.split(";")) {
-    const i = part.indexOf("=");
-    if (i < 0) continue;
-    if (part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
-  }
-  return null;
-}
 
 export async function GET(req: Request) {
   const token = readCookie(req, "gcal_token");

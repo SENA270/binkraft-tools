@@ -367,7 +367,7 @@ export default function ChouseiEventPage() {
   const confirmSlot = async (slot: ConfirmedSlot | null) => {
     if (!event) return;
     setEvent({ ...event, confirmed: slot }); // 楽観的更新
-    await setConfirmed(id, slot);
+    await setConfirmed(id, slot, adminKey);
   };
 
   // 確定日時が、自分(myName)の回答した空きでカバーされているか。未カバー=かぶり。

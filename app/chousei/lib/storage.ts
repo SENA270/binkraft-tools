@@ -132,10 +132,11 @@ export async function upsertResponse(id: string, resp: ParticipantResponse): Pro
   }
 }
 
-/** 主催者が最終日時を確定/解除する。null で解除。 */
-export async function setConfirmed(id: string, confirmed: ConfirmedSlot | null): Promise<void> {
+/** 主催者が最終日時を確定/解除する。null で解除。
+ *  adminKey はサーバ側認可に必須(マスター鍵)。未指定だと 401 になり LS フォールバックへ。 */
+export async function setConfirmed(id: string, confirmed: ConfirmedSlot | null, adminKey?: string | null): Promise<void> {
   try {
-    await apiPost("/api/chousei/confirm", { id, confirmed });
+    await apiPost("/api/chousei/confirm", { id, confirmed, adminKey: adminKey ?? undefined });
   } catch {
     const ev = lsGetEvent(id);
     if (ev) {

@@ -12,6 +12,7 @@ import {
   fetchFreeBusy,
 } from "../../../../chousei/lib/google";
 import { verifySession, SESSION_COOKIE_NAME, sessionConfigured } from "../../../../chousei/lib/session";
+import { readCookie } from "../../../../chousei/lib/request";
 import { jstIso, busyToDayMinutes, intervalsOverlap } from "../../../../chousei/lib/time";
 import type { EventConfig, Interval } from "../../../../chousei/lib/types";
 
@@ -27,17 +28,6 @@ type SubmittedResponse = {
   name: string;
   byDate: Record<string, { unavailable: boolean; intervals: Interval[] }>;
 };
-
-function readCookie(req: Request, name: string): string | null {
-  const header = req.headers.get("cookie");
-  if (!header) return null;
-  for (const part of header.split(";")) {
-    const i = part.indexOf("=");
-    if (i < 0) continue;
-    if (part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
-  }
-  return null;
-}
 
 export async function POST(req: Request) {
   const token = readCookie(req, "gcal_token");
