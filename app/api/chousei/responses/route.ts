@@ -1,6 +1,7 @@
 // 日程調整: 参加者の回答の取得/upsert(同名は置換)。
 import { NextResponse } from "next/server";
 import { kvGet, kvSet, kvConfigured } from "../../../chousei/lib/kv";
+import { rateLimit, clientIp, rateLimitedResponse } from "../../../chousei/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!kvConfigured()) return NextResponse.json({ error: "kv_unconfigured" }, { status: 503 });
+  // 回答送信は認可なし(参加者なら誰でも) → IP単位で厳しめに(スパム書き込み防止)
+  const rl = await rateLimit("responses-post", clientIp(req), 20, 60_000);
+  if (!rl.ok) return rateLimitedResponse(rl);
   let body: { id?: string; response?: ParticipantResponse };
   try {
     body = await req.json();

@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { kvGet, kvSet, kvConfigured } from "../../../chousei/lib/kv";
 import { adminKeyMatches } from "../../../chousei/lib/storage";
+import { rateLimit, clientIp, rateLimitedResponse } from "../../../chousei/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!kvConfigured()) return NextResponse.json({ error: "kv_unconfigured" }, { status: 503 });
+  // IP単位レート: 1分30件(イベント作成/更新の濫用防止)
+  const rl = await rateLimit("event-post", clientIp(req), 30, 60_000);
+  if (!rl.ok) return rateLimitedResponse(rl);
   let body: { id?: string; adminKey?: string } & Record<string, unknown>;
   try {
     body = await req.json();

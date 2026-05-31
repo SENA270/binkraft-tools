@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { kvGet, kvSet, kvConfigured } from "../../../chousei/lib/kv";
 import { adminKeyMatches } from "../../../chousei/lib/storage";
+import { rateLimit, clientIp, rateLimitedResponse } from "../../../chousei/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ function validSlot(v: unknown): v is ConfirmedSlot {
 
 export async function POST(req: Request) {
   if (!kvConfigured()) return NextResponse.json({ error: "kv_unconfigured" }, { status: 503 });
+  const rl = await rateLimit("confirm-post", clientIp(req), 30, 60_000);
+  if (!rl.ok) return rateLimitedResponse(rl);
   let body: { id?: string; confirmed?: unknown; adminKey?: string };
   try {
     body = await req.json();

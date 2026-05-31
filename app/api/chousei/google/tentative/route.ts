@@ -13,6 +13,7 @@ import {
 } from "../../../../chousei/lib/google";
 import { verifySession, SESSION_COOKIE_NAME, sessionConfigured } from "../../../../chousei/lib/session";
 import { readCookie } from "../../../../chousei/lib/request";
+import { rateLimit, clientIp, rateLimitedResponse } from "../../../../chousei/lib/ratelimit";
 import { jstIso, busyToDayMinutes, intervalsOverlap } from "../../../../chousei/lib/time";
 import type { EventConfig, Interval } from "../../../../chousei/lib/types";
 
@@ -38,6 +39,13 @@ export async function POST(req: Request) {
   if (!sess) return NextResponse.json({ skipped: true, reason: "no_login" });
 
   if (!kvConfigured()) return NextResponse.json({ error: "kv_unconfigured" }, { status: 503 });
+
+  // 仮押さえは Google API 呼び出しを伴うので厳しめに。
+  // email 単位(同一アカウントの濫用防止) + IP 単位(同一ネットワークの濫用)の両方を見る。
+  const rlEmail = await rateLimit("tentative-email", sess.email.toLowerCase(), 10, 60_000);
+  if (!rlEmail.ok) return rateLimitedResponse(rlEmail);
+  const rlIp = await rateLimit("tentative-ip", clientIp(req), 20, 60_000);
+  if (!rlIp.ok) return rateLimitedResponse(rlIp);
 
   let body: { id?: string; response?: SubmittedResponse };
   try {
