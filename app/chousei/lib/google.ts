@@ -41,18 +41,27 @@ export function loginCallbackUrl(req: Request): string {
   return `${baseUrl(req)}/api/chousei/google/login/callback`;
 }
 
-export function buildAuthUrl(redirectUri: string, state: string): string {
-  const p = new URLSearchParams({
+/**
+ * カレンダー連携用の認可URL。
+ * @param hasStoredRefresh true なら prompt を付けない(再同意省略 = UX 改善)。
+ *   - 初回や再連携時(refresh_token なし) は prompt=consent で再発行を強制。
+ *   - 既に refresh_token を保存してる場合は省略して、毎回の同意画面を消す。
+ */
+export function buildAuthUrl(redirectUri: string, state: string, hasStoredRefresh = false): string {
+  const params: Record<string, string> = {
     client_id: CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: SCOPE,
-    access_type: "offline", // refresh_token を取得(確定時のサーバ側削除に必要)
+    access_type: "offline",
     include_granted_scopes: "true",
-    prompt: "consent", // 再同意で確実に refresh_token を再発行
     state,
-  });
-  return `${AUTH_ENDPOINT}?${p.toString()}`;
+  };
+  if (!hasStoredRefresh) {
+    // refresh_token が無い時のみ強制再同意。あればGoogleが既存同意を使い回す。
+    params.prompt = "consent";
+  }
+  return `${AUTH_ENDPOINT}?${new URLSearchParams(params).toString()}`;
 }
 
 /** ログイン(openid+email+profile)用の認可URL。テストユーザー外でも可。 */

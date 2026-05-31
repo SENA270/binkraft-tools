@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 import { googleConfigured, buildAuthUrl, callbackUrl } from "../../../../chousei/lib/google";
 import { oauthStateConfigured, signState } from "../../../../chousei/lib/oauth-state";
 import { rateLimit, clientIp, rateLimitedResponse } from "../../../../chousei/lib/ratelimit";
+import { readCookie } from "../../../../chousei/lib/request";
+import { verifySession, SESSION_COOKIE_NAME, sessionConfigured } from "../../../../chousei/lib/session";
+import { getRefreshToken, refreshStoreConfigured } from "../../../../chousei/lib/refresh";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,5 +23,17 @@ export async function GET(req: Request) {
   if (!rl.ok) return rateLimitedResponse(rl);
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  return NextResponse.redirect(buildAuthUrl(callbackUrl(req), signState(id)));
+
+  // ログイン済みかつ refresh token を保存済みなら同意画面を省略(UX 改善)。
+  // ?force=consent を付けた場合は強制再同意(連携解除後の再連携や鍵入れ替え用の救済路)。
+  let hasStoredRefresh = false;
+  const force = new URL(req.url).searchParams.get("force");
+  if (force !== "consent" && sessionConfigured() && refreshStoreConfigured()) {
+    const sess = verifySession(readCookie(req, SESSION_COOKIE_NAME));
+    if (sess) {
+      const existing = await getRefreshToken(sess.email);
+      hasStoredRefresh = !!existing;
+    }
+  }
+  return NextResponse.redirect(buildAuthUrl(callbackUrl(req), signState(id), hasStoredRefresh));
 }

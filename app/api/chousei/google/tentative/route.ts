@@ -66,27 +66,45 @@ export async function POST(req: Request) {
   }
   if (!ev) return NextResponse.json({ error: "event_not_found" }, { status: 404 });
 
-  // 2. 既存の仮押さえを削除(編集時に古いものを始末)
+  // 2. 既存の仮押さえを削除(編集時に古いものを始末)。
+  //    削除失敗したものは KV に残し、次回呼び出しで再試行できるようにする(=トランザクション風の冪等性)。
   let existing: TentativeRecord[] = [];
   try {
     const existingRaw = await kvGet(TENTATIVE_KEY(id, sess.email));
     existing = existingRaw ? (JSON.parse(existingRaw) as TentativeRecord[]) : [];
-  } catch {
-    /* 取得失敗時は無視して進める */
+  } catch (e) {
+    console.error("[tentative] existing kvGet failed:", e);
   }
+
+  // 「Google上にまだ存在しうる仮押さえ」の現状ビュー。
+  // この配列を Google 操作のたびに KV へ反映し、途中で落ちても次回が回収できる状態にする。
+  const liveOnGoogle: TentativeRecord[] = [...existing];
+  const persist = async () => {
+    try {
+      await kvSet(TENTATIVE_KEY(id, sess.email), JSON.stringify(liveOnGoogle));
+    } catch (e) {
+      console.error("[tentative] persist failed:", e);
+    }
+  };
+
   let removed = 0;
-  for (const e of existing) {
+  for (const e of [...existing]) {
     try {
       await deleteCalendarEvent(token, e.eventId);
+      // 削除成功 → liveOnGoogle から除去
+      const idx = liveOnGoogle.findIndex((x) => x.eventId === e.eventId);
+      if (idx >= 0) liveOnGoogle.splice(idx, 1);
       removed++;
-    } catch {
-      /* 既に手動削除されている等。続行 */
+      await persist();
+    } catch (err) {
+      // 削除失敗 → liveOnGoogle に残して次回再試行(orphan を放置しない)
+      console.warn("[tentative] delete failed (will retry next time):", err);
     }
   }
 
   const dates = ev.config.candidateDates;
   if (dates.length === 0) {
-    await kvSet(TENTATIVE_KEY(id, sess.email), JSON.stringify([])).catch(() => {});
+    await persist();
     return NextResponse.json({ created: 0, skipped: 0, removed });
   }
 
@@ -104,12 +122,12 @@ export async function POST(req: Request) {
         .map((b) => busyToDayMinutes(date, b.start, b.end))
         .filter((x): x is Interval => x !== null);
     }
-  } catch {
-    /* freebusy取得失敗 → 衝突チェックなしで進む(緩い) */
+  } catch (e) {
+    console.warn("[tentative] freebusy failed (proceeding without conflict check):", e);
   }
 
-  // 4. 仮押さえ作成
-  const created: TentativeRecord[] = [];
+  // 4. 仮押さえ作成(各成功ごとに KV 反映 → 途中失敗でも orphan ゼロ)
+  let createdCount = 0;
   let skipped = 0;
   for (const date of dates) {
     const day = response.byDate[date];
@@ -132,19 +150,17 @@ export async function POST(req: Request) {
           },
           reminders: { useDefault: false },
         });
-        created.push({ date, eventId, start: iv.start, end: iv.end });
-      } catch {
+        liveOnGoogle.push({ date, eventId, start: iv.start, end: iv.end });
+        createdCount++;
+        await persist(); // 1件作るたびに反映(orphan防止)
+      } catch (e) {
+        console.warn("[tentative] createCalendarEvent failed:", e);
         skipped++;
       }
     }
   }
 
-  // 5. マッピング保存
-  try {
-    await kvSet(TENTATIVE_KEY(id, sess.email), JSON.stringify(created));
-  } catch {
-    /* noop */
-  }
-
-  return NextResponse.json({ created: created.length, skipped, removed });
+  // 5. 最終状態を確実に反映(persist のリトライ的位置付け)
+  await persist();
+  return NextResponse.json({ created: createdCount, skipped, removed });
 }

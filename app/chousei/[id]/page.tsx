@@ -15,6 +15,9 @@ import {
   verifyMaster,
   getLoggedInUser,
   logout,
+  saveAdminKey,
+  loadAdminKey,
+  onLocalOnlyFallback,
   type StoredEvent,
   type ConfirmedSlot,
   type LoggedInUser,
@@ -51,6 +54,8 @@ export default function ChouseiEventPage() {
   const [loggedInUser, setLoggedInUser] = useState<LoggedInUser | null>(null);
   const [loginNote, setLoginNote] = useState("");
   const [tentativeNote, setTentativeNote] = useState("");
+  // サーバ保存が失敗→端末ローカルにフォールバックした時のバナー(silent failure 対策)。
+  const [localOnly, setLocalOnly] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -71,21 +76,34 @@ export default function ChouseiEventPage() {
   }, [id]);
 
   useEffect(() => {
+    // サーバ保存が失敗した時に「この端末でしか保存されていません」と気づかせる。
+    const unsub = onLocalOnlyFallback(() => setLocalOnly(true));
+    return unsub;
+  }, []);
+
+  useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
     const params = new URLSearchParams(window.location.search);
-    const k = params.get("k");
+    // マスター鍵: URL ?k= から1度だけ受け取り、端末ローカルに保存して URL からは削除する。
+    // 履歴/Referer 経由の鍵漏洩を防ぐため(端末をまたぐ場合は再度マスターURLを共有する運用)。
+    const urlKey = params.get("k");
+    const storedKey = loadAdminKey(id);
+    const k = urlKey ?? storedKey;
+    if (urlKey) saveAdminKey(id, urlKey);
     setAdminKey(k);
-    // ?login=... を検出し、URLからは消してメモだけ残す。
+
+    // URL から ?k= と ?login= を取り除く(履歴に残らないように)。
     const loginParam = params.get("login");
-    if (loginParam) {
-      // 既存の ?k= は維持。?login= だけ落とす。
+    if (urlKey || loginParam) {
       const next = new URLSearchParams(params);
+      next.delete("k");
       next.delete("login");
       const qs = next.toString();
       window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
       if (loginParam === "logged_in") setLoginNote("Googleログインしました。招待を受け取れます。");
       if (loginParam === "error") setLoginNote("ログインに失敗しました。もう一度お試しください。");
     }
+
     // サーバ照合(新方式) を試し、なければ旧方式の localStorage にフォールバック。
     (async () => {
       const ok = await verifyMaster(id, k);
@@ -383,6 +401,16 @@ export default function ChouseiEventPage() {
         <Link href="/chousei" className="text-sm text-zinc-400 hover:underline">
           ← 新規作成
         </Link>
+
+        {localOnly && (
+          <div className="mt-3 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p className="font-bold">⚠️ サーバ保存に失敗しています</p>
+            <p className="mt-1">
+              この端末でのみ動作中です。他の人と共有・他の端末からアクセスはできません。
+              しばらくしてからページを再読み込みすると復旧することがあります。
+            </p>
+          </div>
+        )}
 
         <div className="mt-4 flex items-center gap-2">
           <h1 className="text-2xl font-black text-zinc-900">{event.title}</h1>

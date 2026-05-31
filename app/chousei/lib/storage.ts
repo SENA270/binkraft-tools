@@ -95,11 +95,38 @@ async function apiPost(path: string, body: unknown): Promise<Response> {
   return res;
 }
 
+// ── サーバ→ローカル のフォールバックが起きたことを UI に伝える購読システム ──
+// サーバ保存に失敗→端末ローカルのみで動作している状態を社長が気づかないと
+// 「他端末/他参加者と共有できていない」silent failure になる(audit 指摘 4-1)。
+// 各 try/catch 内で notifyLocalOnly() を呼び、UI は onLocalOnlyFallback で購読する。
+type LocalOnlyListener = (reason: "save" | "fetch") => void;
+const localOnlyListeners: LocalOnlyListener[] = [];
+let lastNotifiedAt = 0;
+
+function notifyLocalOnly(reason: "save" | "fetch"): void {
+  // 1秒以内の連続通知はまとめる(短時間に複数 fallback してもバナーは1回)
+  const now = Date.now();
+  if (now - lastNotifiedAt < 1000) return;
+  lastNotifiedAt = now;
+  for (const l of localOnlyListeners) {
+    try { l(reason); } catch { /* listener が落ちても続行 */ }
+  }
+}
+
+export function onLocalOnlyFallback(listener: LocalOnlyListener): () => void {
+  localOnlyListeners.push(listener);
+  return () => {
+    const i = localOnlyListeners.indexOf(listener);
+    if (i >= 0) localOnlyListeners.splice(i, 1);
+  };
+}
+
 export async function saveEvent(ev: StoredEvent): Promise<void> {
   try {
     await apiPost("/api/chousei/event", ev);
   } catch {
     lsSaveEvent(ev); // サーバ未設定/エラー → 端末ローカルに保存(従来動作)
+    notifyLocalOnly("save");
   }
 }
 
@@ -109,7 +136,9 @@ export async function getEvent(id: string): Promise<StoredEvent | null> {
     const j = (await res.json()) as { event?: StoredEvent | null };
     return j.event ?? null;
   } catch {
-    return lsGetEvent(id);
+    const local = lsGetEvent(id);
+    if (local) notifyLocalOnly("fetch");
+    return local;
   }
 }
 
@@ -119,7 +148,9 @@ export async function getResponses(id: string): Promise<ParticipantResponse[]> {
     const j = (await res.json()) as { responses?: ParticipantResponse[] };
     return Array.isArray(j.responses) ? j.responses : [];
   } catch {
-    return lsGetResponses(id);
+    const local = lsGetResponses(id);
+    if (local.length > 0) notifyLocalOnly("fetch");
+    return local;
   }
 }
 
@@ -129,6 +160,7 @@ export async function upsertResponse(id: string, resp: ParticipantResponse): Pro
     await apiPost("/api/chousei/responses", { id, response: resp });
   } catch {
     lsUpsertResponse(id, resp);
+    notifyLocalOnly("save");
   }
 }
 
@@ -143,6 +175,7 @@ export async function setConfirmed(id: string, confirmed: ConfirmedSlot | null, 
       ev.confirmed = confirmed;
       lsSaveEvent(ev);
     }
+    notifyLocalOnly("save");
   }
 }
 
@@ -152,6 +185,21 @@ export function markMaster(id: string): void {
 }
 export function isMaster(id: string): boolean {
   return hasLS() && window.localStorage.getItem(MASTER_KEY(id)) === "1";
+}
+
+// マスター鍵そのものを端末ローカルに保持する。URLの ?k= から1度だけ読み取り、
+// 以降はここから取り出して使う(URL履歴/Referer 経由の漏洩を防ぐ)。
+const ADMIN_KEY_STORAGE = (id: string) => `chousei:adminKey:${id}`;
+
+export function saveAdminKey(id: string, key: string): void {
+  if (hasLS()) window.localStorage.setItem(ADMIN_KEY_STORAGE(id), key);
+}
+export function loadAdminKey(id: string): string | null {
+  if (!hasLS()) return null;
+  return window.localStorage.getItem(ADMIN_KEY_STORAGE(id));
+}
+export function clearAdminKey(id: string): void {
+  if (hasLS()) window.localStorage.removeItem(ADMIN_KEY_STORAGE(id));
 }
 
 /** サーバー側でマスター鍵を照合(サーバ保証のマスター判定)。鍵未指定/不一致は false。 */
