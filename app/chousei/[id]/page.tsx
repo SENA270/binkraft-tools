@@ -876,6 +876,7 @@ function Results({
         {byDate.map(({ date, windows }) => {
           const slotAvail = slotAvailability(responses, date, config);
           const best = windows[0];
+          const fullOkWindows = windows.filter((w) => w.isFullConsensus);
           return (
             <div key={date} className="rounded-xl border border-zinc-200 bg-white p-4">
               <div className="flex items-baseline justify-between">
@@ -895,7 +896,17 @@ function Results({
                 )}
               </div>
 
-              <div className="mt-3 overflow-x-auto">
+              {fullOkWindows.length > 0 && (
+                <p className="mt-3 text-sm font-bold text-red-700">
+                  ✨ 全員OK:{" "}
+                  {fullOkWindows.map((w) => `${minutesToHHMM(w.start)}〜${minutesToHHMM(w.end)}`).join(" / ")}
+                </p>
+              )}
+              <p className="mt-2 text-[10px] text-zinc-500">
+                ○=出れる / 空白=出れない /{" "}
+                <span className="rounded bg-red-200 px-1 font-bold text-red-800">赤</span>=全員OK
+              </p>
+              <div className="mt-2 overflow-x-auto">
                 <table className="border-collapse text-xs">
                   <thead>
                     <tr>
@@ -909,9 +920,9 @@ function Results({
                         return (
                           <th
                             key={i}
-                            className={`min-w-[28px] px-0.5 py-1 text-center text-[9px] font-normal ${
+                            className={`min-w-[36px] px-0.5 py-1 text-center text-[10px] font-normal ${
                               isAllOk
-                                ? "bg-red-100 font-bold text-red-700"
+                                ? "bg-red-200 font-bold text-red-800"
                                 : isNobody
                                   ? "text-zinc-300"
                                   : "text-zinc-500"
@@ -936,17 +947,17 @@ function Results({
                           return (
                             <td
                               key={i}
-                              className={`min-w-[28px] px-0.5 py-0.5 text-center text-sm ${
+                              className={`min-w-[36px] px-0.5 py-0.5 text-center text-base ${
                                 isNobody
-                                  ? "bg-zinc-50 text-zinc-300"
+                                  ? "bg-zinc-50"
                                   : isAllOk && canCome
-                                    ? "bg-red-50 font-bold text-red-700"
+                                    ? "bg-red-100 font-bold text-red-800"
                                     : canCome
                                       ? "text-emerald-600"
-                                      : "text-zinc-300"
+                                      : ""
                               }`}
                             >
-                              {canCome ? "○" : "・"}
+                              {canCome ? "○" : ""}
                             </td>
                           );
                         })}
