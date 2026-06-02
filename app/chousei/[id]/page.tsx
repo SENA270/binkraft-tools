@@ -22,7 +22,7 @@ import {
   type ConfirmedSlot,
   type LoggedInUser,
 } from "../lib/storage";
-import { rankDays, slotAvailability, slotCount, minutesToHHMM } from "../lib/overlap";
+import { rankDays, slotAvailability, minutesToHHMM } from "../lib/overlap";
 
 type TimeRange = { start: string; end: string }; // 分を文字列で保持("" = 未選択)
 type DaySelection = { unavailable: boolean; ranges: TimeRange[] };
@@ -802,7 +802,6 @@ function Results({
   const total = responses.length;
   if (total === 0) return <p className="mt-8 text-center text-sm text-zinc-400">まだ回答がありません</p>;
   const ranked = rankDays(responses, config);
-  const n = slotCount(config);
   // 全候補日のうち、いちばん多くの人が出れる窓(=おすすめ)。
   const topDay = ranked.find((r) => r.windows[0]);
   const topPick = topDay?.windows[0];
@@ -873,7 +872,7 @@ function Results({
 
       <div className="mt-4 space-y-3">
         {ranked.map(({ date, windows }) => {
-          const counts = slotAvailability(responses, date, config).map((s) => s.length);
+          const slotAvail = slotAvailability(responses, date, config);
           const best = windows[0];
           return (
             <div key={date} className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -894,24 +893,47 @@ function Results({
                 )}
               </div>
 
-              <div className="mt-3 flex gap-px overflow-hidden rounded">
-                {Array.from({ length: n }, (_, i) => {
-                  const c = counts[i];
-                  const alpha = total > 0 ? c / total : 0;
-                  const start = config.dayStart + i * config.slotMinutes;
-                  return (
-                    <div
-                      key={i}
-                      title={`${minutesToHHMM(start)} — ${c}/${total}人`}
-                      className="h-6 flex-1"
-                      style={{ backgroundColor: c === 0 ? "#f4f4f5" : `rgba(79,70,229,${0.2 + alpha * 0.8})` }}
-                    />
-                  );
-                })}
-              </div>
-              <div className="mt-1 flex justify-between text-[10px] text-zinc-400">
-                <span>{minutesToHHMM(config.dayStart)}</span>
-                <span>{minutesToHHMM(config.dayEnd)}</span>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr>
+                      <th className="sticky left-0 bg-white px-1 py-1 text-left text-[10px] font-normal text-zinc-400">時間</th>
+                      {responses.map((r) => (
+                        <th key={r.name} className="px-1 py-1 text-center text-[11px] font-bold text-zinc-700">
+                          {r.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {slotAvail.map((slot, i) => {
+                      if (slot.length === 0) return null;
+                      const startMin = config.dayStart + i * config.slotMinutes;
+                      const isAllOk = slot.length === total;
+                      return (
+                        <tr key={i} className={isAllOk ? "bg-red-50" : ""}>
+                          <td className="sticky left-0 bg-inherit px-1 py-0.5 text-[10px] text-zinc-500">
+                            {minutesToHHMM(startMin)}
+                          </td>
+                          {responses.map((r) => (
+                            <td
+                              key={r.name}
+                              className={`px-1 py-0.5 text-center text-sm ${
+                                slot.includes(r.name)
+                                  ? isAllOk
+                                    ? "font-bold text-red-700"
+                                    : "text-emerald-600"
+                                  : "text-zinc-300"
+                              }`}
+                            >
+                              {slot.includes(r.name) ? "○" : "・"}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
 
               <div className="mt-3 space-y-1.5">
