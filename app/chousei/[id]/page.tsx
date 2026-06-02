@@ -805,6 +805,8 @@ function Results({
   // 全候補日のうち、いちばん多くの人が出れる窓(=おすすめ)。
   const topDay = ranked.find((r) => r.windows[0]);
   const topPick = topDay?.windows[0];
+  // 候補日カードの表示は日付昇順 (rankedの人数順とは別)
+  const byDate = [...ranked].sort((a, b) => a.date.localeCompare(b.date));
 
   const sameSlot = (date: string, start: number, end: number) =>
     !!confirmed && confirmed.date === date && confirmed.start === start && confirmed.end === end;
@@ -871,7 +873,7 @@ function Results({
       )}
 
       <div className="mt-4 space-y-3">
-        {ranked.map(({ date, windows }) => {
+        {byDate.map(({ date, windows }) => {
           const slotAvail = slotAvailability(responses, date, config);
           const best = windows[0];
           return (
