@@ -894,44 +894,62 @@ function Results({
               </div>
 
               <div className="mt-3 overflow-x-auto">
-                <table className="w-full border-collapse text-xs">
+                <table className="border-collapse text-xs">
                   <thead>
                     <tr>
-                      <th className="sticky left-0 bg-white px-1 py-1 text-left text-[10px] font-normal text-zinc-400">時間</th>
-                      {responses.map((r) => (
-                        <th key={r.name} className="px-1 py-1 text-center text-[11px] font-bold text-zinc-700">
-                          {r.name}
-                        </th>
-                      ))}
+                      <th className="sticky left-0 z-10 bg-white px-1 py-1 text-left text-[10px] font-normal text-zinc-400">
+                        名前
+                      </th>
+                      {slotAvail.map((slot, i) => {
+                        const startMin = config.dayStart + i * config.slotMinutes;
+                        const isAllOk = slot.length === total;
+                        const isNobody = slot.length === 0;
+                        return (
+                          <th
+                            key={i}
+                            className={`min-w-[28px] px-0.5 py-1 text-center text-[9px] font-normal ${
+                              isAllOk
+                                ? "bg-red-100 font-bold text-red-700"
+                                : isNobody
+                                  ? "text-zinc-300"
+                                  : "text-zinc-500"
+                            }`}
+                          >
+                            {minutesToHHMM(startMin)}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
-                    {slotAvail.map((slot, i) => {
-                      if (slot.length === 0) return null;
-                      const startMin = config.dayStart + i * config.slotMinutes;
-                      const isAllOk = slot.length === total;
-                      return (
-                        <tr key={i} className={isAllOk ? "bg-red-50" : ""}>
-                          <td className="sticky left-0 bg-inherit px-1 py-0.5 text-[10px] text-zinc-500">
-                            {minutesToHHMM(startMin)}
-                          </td>
-                          {responses.map((r) => (
+                    {responses.map((r) => (
+                      <tr key={r.name}>
+                        <td className="sticky left-0 z-10 bg-white px-1 py-0.5 text-[11px] font-bold text-zinc-700">
+                          {r.name}
+                        </td>
+                        {slotAvail.map((slot, i) => {
+                          const isAllOk = slot.length === total;
+                          const isNobody = slot.length === 0;
+                          const canCome = slot.includes(r.name);
+                          return (
                             <td
-                              key={r.name}
-                              className={`px-1 py-0.5 text-center text-sm ${
-                                slot.includes(r.name)
-                                  ? isAllOk
-                                    ? "font-bold text-red-700"
-                                    : "text-emerald-600"
-                                  : "text-zinc-300"
+                              key={i}
+                              className={`min-w-[28px] px-0.5 py-0.5 text-center text-sm ${
+                                isNobody
+                                  ? "bg-zinc-50 text-zinc-300"
+                                  : isAllOk && canCome
+                                    ? "bg-red-50 font-bold text-red-700"
+                                    : canCome
+                                      ? "text-emerald-600"
+                                      : "text-zinc-300"
                               }`}
                             >
-                              {slot.includes(r.name) ? "○" : "・"}
+                              {canCome ? "○" : "・"}
                             </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
+                          );
+                        })}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
