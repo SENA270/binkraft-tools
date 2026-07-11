@@ -79,6 +79,13 @@ const tools = [
     color: "from-blue-500 to-blue-700",
   },
   {
+    href: "/study-interval",
+    title: "1問インターバルタイマー",
+    description: "30秒で解く→30秒で答え合わせを自動で回し続ける。過去問の高速周回用",
+    emoji: "🔁",
+    color: "from-cyan-600 to-blue-800",
+  },
+  {
     href: "/study-clock",
     title: "勉強用時計",
     description: "フルスクリーン時計+試験までのカウントダウン。時間を意識しろ",
