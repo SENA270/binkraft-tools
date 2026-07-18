@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const EXAM_DATE = new Date("2026-04-28T09:00:00+09:00");
+// 2026-07-18 社長指示: 7/20(月) 14:00 開始の試験までのカウントダウンを表示
+const EXAM_DATE = new Date("2026-07-20T14:00:00+09:00");
 const LONG_BREAK_EVERY = 4; // 4ポモドーロごとに長休憩
 
 const LS_KEY_TOTAL = "study-timer-total-seconds";
