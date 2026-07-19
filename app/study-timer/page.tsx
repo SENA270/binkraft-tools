@@ -10,7 +10,8 @@ const LS_KEY_TOTAL = "study-timer-total-seconds";
 const LS_KEY_TODAY = "study-timer-today";
 const LS_KEY_DATE = "study-timer-date";
 const LS_KEY_POMO = "study-timer-pomo-count";
-const LS_KEY_SETTINGS = "study-timer-settings";
+// v2 (2026-07-18 社長指示): 自動継続をデフォルトONに変更。旧キーの保存値(OFF)を引き継がないためキーを更新
+const LS_KEY_SETTINGS = "study-timer-settings-v2";
 
 type Settings = {
   focusMin: number;
@@ -24,7 +25,7 @@ const DEFAULT_SETTINGS: Settings = {
   focusMin: 25,
   breakMin: 5,
   longBreakMin: 20,
-  autoContinue: false,
+  autoContinue: true, // 集中→休憩→集中を自動で回す (2026-07-18 社長指示でデフォルトON)
   soundOn: true,
 };
 
@@ -68,9 +69,12 @@ function getTodayKey() {
   return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())}`;
 }
 
-function playBeep() {
+function playBeep(sharedCtx?: AudioContext | null) {
   try {
-    const ctx = new AudioContext();
+    // iOSはユーザー操作外で作ったAudioContextを鳴らさないため、
+    // スタート時に初期化した共有コンテキストを優先して使う
+    const ctx = sharedCtx ?? new AudioContext();
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -251,6 +255,8 @@ export default function StudyTimerPage() {
   const endAtRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
+  // iOS対策: スタートボタンのタップ(ユーザー操作)の中で音声を初期化しておく
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const durationOf = useCallback(
     (m: Mode) =>
@@ -313,7 +319,7 @@ export default function StudyTimerPage() {
 
   // タイマー終了時の遷移
   const handleTimerEnd = useCallback(() => {
-    if (settings.soundOn) playBeep();
+    if (settings.soundOn) playBeep(audioCtxRef.current);
     try {
       navigator.vibrate?.(200);
     } catch {
@@ -434,7 +440,23 @@ export default function StudyTimerPage() {
     };
   }, [running, timeLeft, mode]);
 
-  const toggleRunning = () => setRunning((r) => !r);
+  const toggleRunning = () => {
+    setRunning((r) => {
+      const next = !r;
+      if (next) {
+        // スタート操作の中でAudioContextを起こしておく (iOSはこれをしないと終了音が鳴らない)
+        try {
+          if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+          if (audioCtxRef.current.state === "suspended") {
+            audioCtxRef.current.resume().catch(() => {});
+          }
+        } catch {
+          // Audio未対応でもタイマーは動かす
+        }
+      }
+      return next;
+    });
+  };
 
   const applyPreset = (p: { focusMin: number; breakMin: number }) => {
     setSettings((s) => ({ ...s, focusMin: p.focusMin, breakMin: p.breakMin }));
