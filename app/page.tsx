@@ -2,6 +2,13 @@ import Link from "next/link";
 
 const tools = [
   {
+    href: "/chee",
+    title: "チーゲーム",
+    description: "「チー」で終わる言葉を交互に言うだけ。しばりお題で大喜利化する無料パーティゲーム",
+    emoji: "",
+    color: "from-emerald-500 to-teal-500",
+  },
+  {
     href: "/chousei",
     title: "日程の被り調整",
     description: "候補日に「何時〜何時なら空いてる」を入れるだけ。全員の被ってる時間帯を自動で算出",
