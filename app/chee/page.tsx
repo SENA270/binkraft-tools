@@ -237,7 +237,11 @@ export default function CheeGame() {
     setPlayers(ps);
     setTurnIdx(0);
     setTurnCount(0);
-    setDeck(shuffle(SHIBARI_DECK));
+    // 市場リサーチ(2026-07-20)の知見: 序盤は簡単に。1枚目は必ず「しばりなし」でルール学習させ、
+    // 2枚目以降のしばり(演技系=このゲームのUSP)で盛り上げる
+    const free = SHIBARI_DECK.find((c) => c.tag === "フリー");
+    const rest = shuffle(SHIBARI_DECK.filter((c) => c.tag !== "フリー"));
+    setDeck(free ? [free, ...rest] : rest);
     setDeckPos(0);
     setOutOrder([]);
     setHistory([]);
@@ -359,7 +363,7 @@ export default function CheeGame() {
           </span>
         </h1>
         <p className="text-center text-xs text-slate-400 mb-6">
-          語尾「チー」縛りワードバトル 🀄
+          語尾「チー」縛り×演技しばりの大喜利ワードバトル 🀄
         </p>
 
         {/* ===== 設定 ===== */}
@@ -474,6 +478,51 @@ export default function CheeGame() {
             >
               ゲームスタート 🀄
             </button>
+
+            {/* 共有リンクで初めて来た人向けの着地コンテンツ (ゲームの下・邪魔しない位置) */}
+            <section className="pt-6 border-t border-slate-800 space-y-5 text-sm text-slate-400 leading-relaxed">
+              <div>
+                <h2 className="text-slate-200 font-bold mb-2">チーゲームとは (30秒で分かる)</h2>
+                <p>
+                  順番に「<b className="text-emerald-300">チー</b>」で終わる言葉を言うだけのパーティゲームです
+                  (例: ライチー、みっちー)。詰まったら・被ったらアウト。
+                  途中から「ラップ調で言う」「悪役っぽく言う」などの<b className="text-slate-200">しばりお題</b>が出て、
+                  語彙力より演技力と開き直りが試されます。準備なし・スマホ1台・無料です。
+                </p>
+              </div>
+              <div>
+                <h2 className="text-slate-200 font-bold mb-2">こんな時に</h2>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>飲み会・宅飲みで会話が途切れた時に (3人〜が一番盛り上がります)</li>
+                  <li>2人の暇つぶしに (ライフ2〜3設定で長く遊べます)</li>
+                  <li>ドライブ・通話中に (進行役が1人でスマホを持てばOK)</li>
+                  <li>山手線ゲーム・縛りしりとりが好きな人の新しい定番に</li>
+                </ul>
+              </div>
+              <div>
+                <h2 className="text-slate-200 font-bold mb-2">しばりお題の例 (全50種)</h2>
+                <p>
+                  食べ物っぽい言葉だけ / 駅名っぽく / 戦国武将の名前っぽく / 魔法の呪文っぽく /
+                  ささやき声で言う / 実況アナウンサーっぽく / 悪役っぽく言う / ラップ調で言う /
+                  「ッチー」で終わらせる / 造語OK・ただし意味の解説必須 …ほか全50種をランダムで出題します。
+                </p>
+              </div>
+              <div>
+                <h2 className="text-slate-200 font-bold mb-2">よくある質問</h2>
+                <p className="mb-1">
+                  <b className="text-slate-300">Q. アプリのインストールは必要？</b><br />
+                  不要です。このページを開くだけで遊べます。料金もかかりません。
+                </p>
+                <p className="mb-1">
+                  <b className="text-slate-300">Q. 正解の判定はどうするの？</b><br />
+                  アプリは判定しません。セーフかアウトかは、その場の全員のツッコミで決めるのがこのゲームの醍醐味です。
+                </p>
+                <p>
+                  <b className="text-slate-300">Q. 何人から遊べる？</b><br />
+                  2人から8人まで。おすすめは3〜6人です。
+                </p>
+              </div>
+            </section>
           </div>
         )}
 
