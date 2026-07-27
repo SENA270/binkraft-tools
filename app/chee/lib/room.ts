@@ -1,0 +1,80 @@
+// app/chee/lib/room.ts
+// チーゲーム オンライン対戦の「同期ルーム」サーバ保存。
+// 設計: サーバは状態(JSON)の置き場に徹する“薄い”ストア。ゲームのロジックはクライアントが持ち、
+// 行動した端末が新しい state を version 付きで PUT、他端末はポーリングで取得して画面を同期する。
+// 判定(セーフ/アウト)は人間(通話/対面)が行い、その結果を state に反映する = ゲームの本質を維持。
+// 保存は既存の Upstash Redis(KV)を流用。未設定なら kvConfigured()=false。
+import { kvGet, kvSet, kvConfigured } from "../../chousei/lib/kv";
+
+export { kvConfigured };
+
+export type RoomPlayer = { id: string; name: string; lives: number };
+
+export type RoomState = {
+  code: string;
+  hostId: string;
+  phase: "lobby" | "play" | "result";
+  players: RoomPlayer[];
+  turnIdx: number;
+  turnCount: number;
+  deck: { text: string; tag: string }[];
+  deckPos: number;
+  outOrder: string[]; // 脱落した player.id を順に
+  settings: { timerSec: number; shibariFreq: number; livesSetting: number };
+  turnStartedAt: number; // タイマー同期用(epoch ms)。ターン開始でリセット
+  version: number; // 楽観ロック
+  updatedAt: number;
+};
+
+const key = (code: string) => `chee:room:${code}`;
+
+/** 紛らわしい文字を除いた4桁ルームコード */
+export function genCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 0/O/1/I を除外
+  let s = "";
+  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+export async function getRoom(code: string): Promise<RoomState | null> {
+  const raw = await kvGet(key(code));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as RoomState;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveRoom(state: RoomState): Promise<void> {
+  await kvSet(key(state.code), JSON.stringify(state));
+}
+
+/** 未使用コードを引いて新規ルームを作成。 */
+export async function createRoom(init: Omit<RoomState, "code" | "version" | "updatedAt">): Promise<RoomState> {
+  let code = genCode();
+  for (let i = 0; i < 5; i++) {
+    if (!(await getRoom(code))) break;
+    code = genCode();
+  }
+  const state: RoomState = { ...init, code, version: 1, updatedAt: Date.now() };
+  await saveRoom(state);
+  return state;
+}
+
+/**
+ * 楽観ロック更新。expectedVersion が現在と一致する時だけ next を保存し version+1。
+ * 競合時は { ok:false, current } を返す(呼び出し側で再取得→やり直し)。
+ */
+export async function updateRoom(
+  code: string,
+  expectedVersion: number,
+  next: Omit<RoomState, "code" | "version" | "updatedAt">
+): Promise<{ ok: true; state: RoomState } | { ok: false; current: RoomState | null }> {
+  const current = await getRoom(code);
+  if (!current) return { ok: false, current: null };
+  if (current.version !== expectedVersion) return { ok: false, current };
+  const state: RoomState = { ...next, code, version: current.version + 1, updatedAt: Date.now() };
+  await saveRoom(state);
+  return { ok: true, state };
+}
