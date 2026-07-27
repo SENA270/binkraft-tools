@@ -367,13 +367,18 @@ export default function CheeOnline() {
   const create = async () => {
     setErr("");
     kickAudio();
-    if (hasNg(myName)) {
+    const nm = myName.trim();
+    if (!nm) {
+      setErr("名前を入れてね（結果・ランキングに出ます）");
+      return;
+    }
+    if (hasNg(nm)) {
       setErr("その名前は使えません");
       return;
     }
     setBusy(true);
     try {
-      const me: RoomPlayer = { id: myId, name: myName.trim() || "客1", lives: 1, timeBankMs: BANK_MS, wins: 0 };
+      const me: RoomPlayer = { id: myId, name: nm, lives: 1, timeBankMs: BANK_MS, wins: 0 };
       const init: NextState = {
         hostId: myId,
         phase: "lobby",
@@ -413,7 +418,12 @@ export default function CheeOnline() {
   const join = async () => {
     setErr("");
     kickAudio();
-    if (hasNg(myName)) {
+    const nm = myName.trim();
+    if (!nm) {
+      setErr("名前を入れてね（結果・ランキングに出ます）");
+      return;
+    }
+    if (hasNg(nm)) {
       setErr("その名前は使えません");
       return;
     }
@@ -448,7 +458,7 @@ export default function CheeOnline() {
         return;
       }
       setRoomBoth(s);
-      const me: RoomPlayer = { id: myId, name: myName.trim() || `客${s.players.length + 1}`, lives: 1, timeBankMs: BANK_MS, wins: 0 };
+      const me: RoomPlayer = { id: myId, name: nm, lives: 1, timeBankMs: BANK_MS, wins: 0 };
       await applyMutation((cur) =>
         cur.players.some((p) => p.id === myId) ? cur : { ...cur, players: [...cur.players, me] }
       );
@@ -605,11 +615,11 @@ export default function CheeOnline() {
         {!room && (
           <div className="space-y-5">
             <section className="bg-stone-900 rounded-lg p-4 border border-stone-700">
-              <h2 className="text-sm font-bold mb-3 text-amber-200/90">お名前</h2>
+              <h2 className="text-sm font-bold mb-3 text-amber-200/90">お名前（必須）</h2>
               <input
                 value={myName}
                 onChange={(e) => setMyName(e.target.value)}
-                placeholder="なまえ (任意)"
+                placeholder="なまえ（結果・ランキングに出ます）"
                 maxLength={12}
                 className="w-full bg-stone-800 rounded-md px-3 py-2 text-sm placeholder:text-stone-500 outline-none focus:ring-2 focus:ring-red-600"
               />
