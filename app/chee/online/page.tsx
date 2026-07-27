@@ -38,7 +38,6 @@ type RoomState = {
 type NextState = Omit<RoomState, "code" | "version" | "updatedAt">;
 
 const BANK_MS = 30000; // 持ち時間30秒(固定)
-const START_LEN = 4; // 最初の必要文字数
 const LEN_CHOICES = [3, 4, 5, 6, 7, 8]; // 2文字だと「チー」しか無く成立しないので3から
 // 麺屋の暖簾に映える札の色(絵文字は使わず色で識別)
 const COLORS = ["#e0503a", "#e0a133", "#5aa06a", "#4f8fc0", "#b06ac4", "#d0678f", "#5aa89f", "#c08a3a"];
@@ -123,7 +122,6 @@ export default function CheeOnline() {
   const [codeInput, setCodeInput] = useState("");
   const [room, setRoom] = useState<RoomState | null>(null);
   const [input, setInput] = useState("");
-  const [nextLen, setNextLen] = useState(START_LEN);
   const [err, setErr] = useState("");
   const [nowTick, setNowTick] = useState(Date.now());
   const [busy, setBusy] = useState(false);
@@ -418,12 +416,16 @@ export default function CheeOnline() {
     });
   };
 
-  const submit = () => {
+  // 文字数ボタンを押すと「送信＋次の人の文字数を指定」を同時に行う(エンター代わり)
+  const submit = (nl: number) => {
     const s = roomRef.current;
     if (!s || s.players[s.turnIdx]?.id !== myId) return;
     kickAudio();
     const w = input.trim();
-    if (!w) return;
+    if (!w) {
+      setErr("まず「◯◯チー」を打ってね");
+      return;
+    }
     if (!endsWithChee(w)) {
       setErr("「チー」で終わる言葉にして");
       return;
@@ -443,7 +445,6 @@ export default function CheeOnline() {
     }
     setErr("");
     setInput("");
-    const nl = nextLen;
     applyMutation((cur) => advanceSubmit(cur, w, nl, Date.now()));
   };
 
@@ -727,37 +728,27 @@ export default function CheeOnline() {
               <section className="bg-red-900/30 rounded-lg p-4 border border-red-800 space-y-3">
                 <p className="text-sm font-bold text-amber-100">
                   {need > 0
-                    ? `あなたの番！${need}文字の「◯◯チー」を早く打て`
+                    ? `あなたの番！${need}文字の「◯◯チー」を打つ`
                     : room.turnCount === 0
-                      ? "店主として口火を！自由に「◯◯チー」→ 下で次の文字数を指定"
-                      : "あなたの番！「◯◯チー」を早く打て(自由)"}
+                      ? "店主として口火を！自由に「◯◯チー」を打つ"
+                      : "あなたの番！「◯◯チー」を打つ(自由)"}
                 </p>
-                <div className="flex gap-2">
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") submit();
-                    }}
-                    autoFocus
-                    placeholder={need > 0 ? `${need}文字の「◯◯チー」` : "例: ライチー"}
-                    maxLength={20}
-                    className="flex-1 bg-stone-900 rounded-md px-3 py-2 text-base outline-none focus:ring-2 focus:ring-red-600"
-                  />
-                  <button onClick={submit} className="px-5 rounded-md bg-red-700 hover:bg-red-600 text-stone-50 font-bold">
-                    出す
-                  </button>
-                </div>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  autoFocus
+                  placeholder={need > 0 ? `${need}文字の「◯◯チー」` : "例: ライチー"}
+                  maxLength={20}
+                  className="w-full bg-stone-900 rounded-md px-3 py-2 text-base outline-none focus:ring-2 focus:ring-red-600"
+                />
                 <div>
-                  <p className="text-[11px] text-stone-400 mb-1">次の人に出す文字数</p>
+                  <p className="text-[11px] text-stone-400 mb-1">打てたら、次の人に出す文字数を押す（＝これで送信）</p>
                   <div className="flex gap-1.5">
                     {LEN_CHOICES.map((n) => (
                       <button
                         key={n}
-                        onClick={() => setNextLen(n)}
-                        className={`flex-1 py-1.5 rounded-md text-sm font-bold transition ${
-                          nextLen === n ? "bg-amber-400 text-stone-900" : "bg-stone-800 text-stone-400"
-                        }`}
+                        onClick={() => submit(n)}
+                        className="flex-1 py-2.5 rounded-md text-base font-black bg-amber-400 text-stone-900 hover:bg-amber-300 active:scale-95 transition"
                       >
                         {n}
                       </button>
