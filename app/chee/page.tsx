@@ -157,6 +157,20 @@ const DECK_MODES = [
 
 type DeckMode = (typeof DECK_MODES)[number]["key"];
 
+/** 優勝者に贈るランダム称号 (シェアのネタにもなる) */
+const CHAMPION_TITLES = [
+  "言葉の魔術師",
+  "開き直りの帝王",
+  "教室のチーマスター",
+  "即興の天才",
+  "語彙の暴れ馬",
+  "演技派すぎる人",
+  "ど根性チーラー",
+  "ノリで勝ちきった人",
+  "本日のMVP",
+  "伝説のチー使い",
+];
+
 /** 「1つ戻す」用のスナップショット */
 type Snapshot = {
   players: Player[];
@@ -201,6 +215,10 @@ export default function CheeGame() {
   const [customShibari, setCustomShibari] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState("");
   const [shareToast, setShareToast] = useState(false);
+  const [totalPlays, setTotalPlays] = useState(0);
+  const [champStats, setChampStats] = useState<Record<string, number>>({});
+  const [championTitle, setChampionTitle] = useState("");
+  const [showDeckPreview, setShowDeckPreview] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -212,6 +230,13 @@ export default function CheeGame() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) setCustomShibari(parsed.filter((x) => typeof x === "string"));
+      }
+      const plays = Number(localStorage.getItem("chee-plays") || "0");
+      if (plays > 0) setTotalPlays(plays);
+      const cs = localStorage.getItem("chee-champs");
+      if (cs) {
+        const parsedCs = JSON.parse(cs);
+        if (parsedCs && typeof parsedCs === "object") setChampStats(parsedCs as Record<string, number>);
       }
     } catch {
       // localStorage 不可でも続行
@@ -265,6 +290,29 @@ export default function CheeGame() {
     } catch {
       // 非対応端末は無視
     }
+  };
+
+  // ゲーム終了時に通算成績を記録し、優勝者にランダム称号を贈る
+  const recordChampion = (champName: string) => {
+    setTotalPlays((n) => {
+      const next = n + 1;
+      try {
+        localStorage.setItem("chee-plays", String(next));
+      } catch {
+        // 保存不可でも続行
+      }
+      return next;
+    });
+    setChampStats((s) => {
+      const next = { ...s, [champName]: (s[champName] || 0) + 1 };
+      try {
+        localStorage.setItem("chee-champs", JSON.stringify(next));
+      } catch {
+        // 保存不可でも続行
+      }
+      return next;
+    });
+    setChampionTitle(CHAMPION_TITLES[Math.floor(Math.random() * CHAMPION_TITLES.length)]);
   };
 
   // iOS 対策: ユーザー操作起点で AudioContext を確保してビープを鳴らす
@@ -417,6 +465,8 @@ export default function CheeGame() {
     beep(330, 250);
     buzz(nowDead ? [70, 50, 120] : 60);
     if (nowDead && remain <= 1) {
+      const champ = ps.find((p) => p.lives > 0);
+      recordChampion((champ ?? cur).name);
       setPhase("result");
       return;
     }
@@ -433,7 +483,7 @@ export default function CheeGame() {
   const ranking = winner ? [winner.name, ...[...outOrder].reverse()] : [...outOrder].reverse();
 
   const shareText = winner
-    ? `チーゲームで優勝！本日のチーマスターは「${winner.name}」👑\n語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー`
+    ? `チーゲームで優勝！本日のチーマスターは「${winner.name}」${championTitle ? `（${championTitle}）` : ""}👑\n語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー`
     : "語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー";
 
   const shareResult = async () => {
@@ -614,6 +664,12 @@ export default function CheeGame() {
               <p className="mt-2 text-[10px] text-slate-500">
                 「演技多め」がこのゲームの本領。恥ずかしがり屋が多いグループは「ゆるめ」で
               </p>
+              <button
+                onClick={() => setShowDeckPreview(true)}
+                className="mt-2 text-[11px] text-emerald-300 underline underline-offset-2"
+              >
+                どんなお題が出る？ (お題を見てみる)
+              </button>
             </section>
 
             <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
@@ -854,7 +910,17 @@ export default function CheeGame() {
               <p className="text-5xl mb-3">🏆</p>
               <p className="text-xs text-emerald-300 mb-1">優勝 — 本日のチーマスター</p>
               <p className="text-3xl font-black text-emerald-200">{winner?.name || "—"}</p>
+              {championTitle && (
+                <p className="mt-2 inline-block rounded-full bg-emerald-800/60 px-3 py-1 text-xs font-bold text-emerald-100">
+                  称号「{championTitle}」
+                </p>
+              )}
               <p className="mt-3 text-xs text-slate-400">全 {turnCount + 1} ターンの死闘でした</p>
+              {winner && (champStats[winner.name] || 0) > 1 && (
+                <p className="mt-1 text-xs text-emerald-300">
+                  {winner.name} は通算 {champStats[winner.name]} 回目のチーマスター 👑
+                </p>
+              )}
             </section>
 
             {ranking.length > 1 && (
@@ -871,6 +937,30 @@ export default function CheeGame() {
                       </span>
                     </li>
                   ))}
+                </ol>
+              </section>
+            )}
+
+            {Object.keys(champStats).length > 0 && (
+              <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800 text-left">
+                <h2 className="text-xs font-bold text-slate-400 mb-2 text-center">
+                  🏛 通算チーマスター殿堂 (この端末・全{totalPlays}戦)
+                </h2>
+                <ol className="space-y-1">
+                  {Object.entries(champStats)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([name, count], i) => (
+                      <li key={name} className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2">
+                          <span className="w-6 text-center">{i === 0 ? "👑" : `${i + 1}`}</span>
+                          <span className={i === 0 ? "font-bold text-emerald-200" : "text-slate-300"}>
+                            {name}
+                          </span>
+                        </span>
+                        <span className="text-xs text-slate-500">{count}勝</span>
+                      </li>
+                    ))}
                 </ol>
               </section>
             )}
@@ -959,6 +1049,41 @@ export default function CheeGame() {
             <button
               onClick={() => setShowHints(false)}
               className="mt-4 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-sm"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDeckPreview && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-5"
+          onClick={() => setShowDeckPreview(false)}
+        >
+          <div
+            className="bg-slate-900 rounded-2xl p-5 max-w-sm w-full border border-slate-700 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-black mb-3 text-emerald-300">お題の例 (全74種)</h2>
+            {["演技", "ジャンル", "ルール"].map((tag) => (
+              <div key={tag} className="mb-4">
+                <p className="text-xs font-bold text-slate-400 mb-1.5">{tag}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SHIBARI_DECK.filter((c) => c.tag === tag).map((c) => (
+                    <span
+                      key={c.text}
+                      className="text-[11px] px-2 py-1 rounded-full bg-slate-800 text-slate-300"
+                    >
+                      {c.text}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={() => setShowDeckPreview(false)}
+              className="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-sm"
             >
               閉じる
             </button>
