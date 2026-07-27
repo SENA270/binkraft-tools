@@ -558,7 +558,9 @@ export default function CheeOnline() {
                   <span className="text-4xl text-amber-300">{need}</span> 文字ちょうどの「◯◯チー」
                 </p>
               ) : (
-                <p className="text-2xl font-black text-amber-100">1手目は自由！「◯◯チー」なら何でも</p>
+                <p className="text-2xl font-black text-amber-100">
+                  {room.turnCount === 0 ? "店主の一杯！自由に「◯◯チー」" : "自由に「◯◯チー」なら何でも"}
+                </p>
               )}
             </section>
 
@@ -589,12 +591,23 @@ export default function CheeOnline() {
               })()}
             </section>
 
+            {room.log && room.log.length > 0 && (
+              <p className="text-center text-sm text-stone-300">
+                直前：<b style={{ color: colorOf(idxOf(room.players.find((p) => p.name === room.log![room.log!.length - 1].name)?.id ?? "")) }}>{room.log[room.log.length - 1].name}</b>{" "}
+                {room.log[room.log.length - 1].ok
+                  ? `「${room.log[room.log.length - 1].word}」`
+                  : `— ${room.log[room.log.length - 1].word}`}
+              </p>
+            )}
+
             {myTurn ? (
               <section className="bg-red-900/30 rounded-lg p-4 border border-red-800 space-y-3">
                 <p className="text-sm font-bold text-amber-100">
                   {need > 0
                     ? `あなたの番！${need}文字の「◯◯チー」を早く打て`
-                    : "あなたの番！「◯◯チー」を早く打て(1手目は自由)"}
+                    : room.turnCount === 0
+                      ? "店主として口火を！自由に「◯◯チー」→ 下で次の文字数を指定"
+                      : "あなたの番！「◯◯チー」を早く打て(自由)"}
                 </p>
                 <div className="flex gap-2">
                   <input
