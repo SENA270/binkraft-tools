@@ -797,12 +797,16 @@ export default function CheeOnline() {
               </div>
             </section>
 
-            <Link
-              href="/chee/solo"
-              className="block rounded-lg border border-amber-800/50 bg-stone-900 p-3 text-center text-sm font-bold text-amber-200 active:scale-[0.99] transition"
-            >
-              ひとりで練習する（1人用・早撃ち）→
-            </Link>
+            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-2">
+              <h2 className="text-sm font-bold text-amber-200/90">ひとりで練習（1人用）</h2>
+              <p className="text-[11px] text-stone-400">相手がいなくてもOK。文字数のお題を早撃ちでこなす自己ベスト挑戦。</p>
+              <Link
+                href="/chee/solo"
+                className="block w-full py-3 rounded-md text-center text-base font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition"
+              >
+                ひとりで練習する
+              </Link>
+            </section>
 
             <section className="pt-3 border-t border-stone-800 text-sm text-stone-400 leading-relaxed space-y-2">
               <h2 className="text-amber-200/90 font-bold">早撃ちチー対決の遊び方</h2>
