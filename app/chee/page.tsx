@@ -28,6 +28,7 @@ type Phase = "setup" | "play" | "result";
 type Player = {
   name: string;
   lives: number;
+  avatar: string;
 };
 
 /** しばりお題。tag は表示用の分類 */
@@ -190,6 +191,9 @@ const CHAMPION_TITLES = [
   "伝説のチー使い",
 ];
 
+/** プレイヤーに割り当てるランダム絵文字アバター */
+const AVATARS = ["🦊", "🐱", "🐰", "🐼", "🐸", "🐧", "🦁", "🐯", "🐨", "🐵", "🐮", "🦄", "🐙", "🐢", "🦖", "🐝"];
+
 /** 「1つ戻す」用のスナップショット */
 type Snapshot = {
   players: Player[];
@@ -277,6 +281,10 @@ export default function CheeGame() {
           if (typeof cfg.shuffleOrder === "boolean") setShuffleOrder(cfg.shuffleOrder);
           if (typeof cfg.deckMode === "string") setDeckMode(cfg.deckMode as DeckMode);
         }
+      }
+      if (!localStorage.getItem("chee-seen")) {
+        setShowRules(true);
+        localStorage.setItem("chee-seen", "1");
       }
     } catch {
       // localStorage 不可でも続行
@@ -425,9 +433,11 @@ export default function CheeGame() {
     } catch {
       // 保存できなくても開始する
     }
+    const avatars = shuffle(AVATARS);
     let ps: Player[] = Array.from({ length: playerCount }, (_, i) => ({
       name: (names[i] || "").trim() || `プレイヤー${i + 1}`,
       lives: livesSetting,
+      avatar: avatars[i % avatars.length],
     }));
     if (shuffleOrder) ps = shuffle(ps);
     setPlayers(ps);
@@ -509,7 +519,12 @@ export default function CheeGame() {
 
   const handleSafe = () => {
     pushHistory();
-    setStreak((s) => s + 1);
+    const newStreak = streak + 1;
+    setStreak(newStreak);
+    if (newStreak > 0 && newStreak % 5 === 0) {
+      beep(1047, 140);
+      setTimeout(() => beep(1319, 180), 130);
+    }
     goNextTurn(players);
     beep(660, 100);
   };
@@ -563,8 +578,8 @@ export default function CheeGame() {
   const ranking = winner ? [winner.name, ...[...outOrder].reverse()] : [...outOrder].reverse();
 
   const shareText = winner
-    ? `チーゲームで優勝！本日のチーマスターは「${winner.name}」${championTitle ? `（${championTitle}）` : ""}👑\n語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー`
-    : "語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー";
+    ? `チーゲームで優勝！本日のチーマスターは「${winner.name}」${championTitle ? `（${championTitle}）` : ""}👑\n語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー\n#チーゲーム`
+    : "語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー\n#チーゲーム";
 
   const shareResult = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -889,7 +904,7 @@ export default function CheeGame() {
             <section className="bg-slate-900 rounded-2xl p-6 border border-slate-800 text-center">
               <p className="text-xs text-slate-400 mb-1">いまの番</p>
               <p className="text-3xl font-black text-emerald-300 mb-1">
-                {players[turnIdx]?.name}
+                {players[turnIdx]?.avatar} {players[turnIdx]?.name}
               </p>
               {livesSetting > 1 && (
                 <p className="text-sm mb-2" aria-label="残りライフ">
@@ -991,7 +1006,7 @@ export default function CheeGame() {
                         : "bg-slate-800 text-slate-300"
                   }`}
                 >
-                  {p.name}
+                  {p.avatar} {p.name}
                   {livesSetting > 1 && p.lives > 0 ? ` ${"❤️".repeat(p.lives)}` : ""}
                 </span>
               ))}
