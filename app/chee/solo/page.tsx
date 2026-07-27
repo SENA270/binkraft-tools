@@ -303,7 +303,7 @@ export default function CheeSolo() {
   const pct = Math.max(0, Math.min(100, (timeLeft / START_BANK) * 100));
 
   return (
-    <main className="min-h-[100dvh] overscroll-none bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
+    <main className="min-h-[100dvh] overscroll-none bg-stone-950 text-stone-100 px-4 py-3 flex flex-col items-center">
       <style>{`
         @keyframes chee-pop { 0% { transform: scale(0.6); opacity: 0; } 55% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
@@ -320,20 +320,20 @@ export default function CheeSolo() {
           </button>
         </div>
 
-        <div className="mb-6">
-          <div className="mx-auto rounded-b-lg bg-red-800 px-4 pt-4 pb-5 text-center border-x-2 border-b-2 border-red-950 shadow-lg shadow-black/40">
-            <p className="text-[10px] tracking-[0.5em] text-red-200/80 mb-1">麺 屋</p>
+        <div className="mb-3">
+          <div className="mx-auto rounded-b-lg bg-red-800 px-4 pt-2.5 pb-3 text-center border-x-2 border-b-2 border-red-950 shadow-lg shadow-black/40">
+            <p className="text-[9px] tracking-[0.5em] text-red-200/80">麺 屋</p>
             <h1
-              className="text-5xl font-black tracking-[0.15em] text-stone-50"
+              className="text-4xl font-black tracking-[0.15em] text-stone-50"
               style={{ fontFamily: '"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif' }}
             >
               チー
             </h1>
-            <p className="text-[11px] text-red-100/90 mt-1 tracking-widest">ひとり早撃ち練習</p>
+            <p className="text-[10px] text-red-100/90 tracking-widest">ひとり早撃ち練習</p>
           </div>
           <div className="flex gap-1 justify-center">
             {Array.from({ length: 6 }).map((_, i) => (
-              <span key={i} className="h-3 w-9 bg-red-800 rounded-b-md border-x-2 border-b-2 border-red-950" />
+              <span key={i} className="h-2.5 w-9 bg-red-800 rounded-b-md border-x-2 border-b-2 border-red-950" />
             ))}
           </div>
         </div>
@@ -344,25 +344,24 @@ export default function CheeSolo() {
 
         {/* ホーム */}
         {phase === "home" && (
-          <div className="space-y-5 text-center">
+          <div className="space-y-3 text-center">
             <div className="flex justify-center">
-              <StoreOwner size={110} />
+              <StoreOwner size={78} />
             </div>
-            <section className="bg-stone-900 rounded-lg p-5 border border-stone-700">
-              <p className="text-sm text-stone-300 leading-relaxed text-left">
-                画面が「<b className="text-amber-200">◯文字</b>」を出すので、その文字数ちょうどの「◯◯<b className="text-amber-200">チー</b>」を打つだけ。
-                正解で<b className="text-amber-200">持ち時間が増え</b>、時間切れで終了。何連続できるか自己ベストに挑戦。
+            <section className="bg-stone-900 rounded-lg p-3 border border-stone-700">
+              <p className="text-xs text-stone-300 leading-relaxed text-left">
+                画面が「<b className="text-amber-200">◯文字</b>」を出すので、その文字数ちょうどの「◯◯<b className="text-amber-200">チー</b>」を打つだけ。正解で<b className="text-amber-200">持ち時間が増え</b>、時間切れで終了。自己ベストに挑戦。
               </p>
             </section>
-            <section className="bg-amber-100 rounded-lg p-4 border-2 border-amber-800/40">
-              <p className="text-xs text-stone-600">自己ベスト</p>
+            <section className="bg-amber-100 rounded-lg p-3 border-2 border-amber-800/40">
+              <p className="text-[11px] text-stone-600">自己ベスト</p>
               <p className="text-3xl font-black text-red-800" style={{ fontFamily: '"Yu Mincho",serif' }}>
                 {best} 連続
               </p>
             </section>
             <button
               onClick={startGame}
-              className="w-full py-4 rounded-md text-lg font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition"
+              className="w-full py-3.5 rounded-md text-lg font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition"
             >
               はじめる
             </button>
