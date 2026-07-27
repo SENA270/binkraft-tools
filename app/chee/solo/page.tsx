@@ -54,6 +54,7 @@ export default function CheeSolo() {
   const [err, setErr] = useState("");
   const [timeLeft, setTimeLeft] = useState(START_BANK);
   const [bgmOn, setBgmOn] = useState(true);
+  const [showOpening, setShowOpening] = useState(false);
 
   const usedRef = useRef<Set<string>>(new Set());
   const composingRef = useRef(false); // IME変換中フラグ(変換中はカタカナ化しない)
@@ -209,7 +210,6 @@ export default function CheeSolo() {
     if (bgmOn) startBgm();
     usedRef.current = new Set();
     bankRef.current = START_BANK;
-    lastTsRef.current = Date.now();
     scoreRef.current = 0;
     requiredRef.current = 4;
     setScore(0);
@@ -219,18 +219,28 @@ export default function CheeSolo() {
     setTimeLeft(START_BANK);
     setPhase("play");
     stopTick();
-    tickRef.current = window.setInterval(() => {
-      const now = Date.now();
-      bankRef.current -= now - lastTsRef.current;
-      lastTsRef.current = now;
-      if (bankRef.current <= 0) {
-        bankRef.current = 0;
-        setTimeLeft(0);
-        gameOver();
-        return;
-      }
-      setTimeLeft(bankRef.current);
-    }, 100);
+    // 店主の開店演出(この間は持ち時間を減らさない)
+    setShowOpening(true);
+    if (bgmOn) {
+      beep(1046.5, 0.5, 0.12);
+      setTimeout(() => beep(1567.98, 0.6, 0.1), 120);
+    }
+    setTimeout(() => {
+      setShowOpening(false);
+      lastTsRef.current = Date.now();
+      tickRef.current = window.setInterval(() => {
+        const now = Date.now();
+        bankRef.current -= now - lastTsRef.current;
+        lastTsRef.current = now;
+        if (bankRef.current <= 0) {
+          bankRef.current = 0;
+          setTimeLeft(0);
+          gameOver();
+          return;
+        }
+        setTimeLeft(bankRef.current);
+      }, 100);
+    }, 2000);
   };
 
   const submit = () => {
@@ -294,6 +304,9 @@ export default function CheeSolo() {
 
   return (
     <main className="min-h-screen bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
+      <style>{`
+        @keyframes chee-pop { 0% { transform: scale(0.6); opacity: 0; } 55% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+      `}</style>
       <div className="w-full max-w-md">
         <div className="flex items-center justify-between mb-3">
           <Link href="/chee/online" className="text-xs text-stone-400 hover:text-stone-200">
@@ -421,10 +434,14 @@ export default function CheeSolo() {
         {phase === "over" && (
           <div className="space-y-5 text-center">
             <section className="bg-amber-100 rounded-lg p-8 border-2 border-amber-800/40">
+              <div className="flex justify-center mb-1">
+                <StoreOwner size={80} />
+              </div>
               <p className="text-xs tracking-[0.3em] text-red-800/80 mb-1">閉店</p>
-              <p className="text-2xl font-black text-red-800 mb-3" style={{ fontFamily: '"Yu Mincho",serif' }}>
+              <p className="text-2xl font-black text-red-800 mb-2" style={{ fontFamily: '"Yu Mincho",serif' }}>
                 {score} 連続
               </p>
+              <p className="mb-2 text-xs text-stone-700">店主「また来るチー」</p>
               <p className="text-xs text-stone-600">
                 自己ベスト {best} 連続{score >= best && score > 0 ? "（更新！）" : ""}
               </p>
@@ -446,6 +463,20 @@ export default function CheeSolo() {
           </div>
         )}
       </div>
+
+      {showOpening && phase === "play" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
+          <div className="text-center px-8" style={{ animation: "chee-pop 0.5s ease" }}>
+            <div className="flex justify-center mb-3">
+              <StoreOwner size={132} />
+            </div>
+            <p className="mb-2 text-4xl font-black text-red-500" style={{ fontFamily: '"Yu Mincho",serif' }}>
+              いらっしゃい！
+            </p>
+            <p className="text-lg text-amber-100">店主「早撃ち、いくチー！」</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
