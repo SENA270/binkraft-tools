@@ -640,6 +640,12 @@ export default function CheeGame() {
         {/* ===== 設定 ===== */}
         {phase === "setup" && (
           <div className="space-y-5">
+            <Link
+              href="/chee/online"
+              className="block rounded-2xl border border-sky-800 bg-gradient-to-r from-sky-950 to-emerald-950 p-3 text-center text-sm font-bold text-sky-200 active:scale-[0.99] transition"
+            >
+              🌐 離れた友達とオンライン対戦(テキスト)で遊ぶ →
+            </Link>
             <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
               <h2 className="text-sm font-bold mb-3 text-slate-300">プレイヤー ({playerCount}人)</h2>
               <div className="flex gap-2 mb-3">

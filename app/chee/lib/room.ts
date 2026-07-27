@@ -8,12 +8,13 @@ import { kvGet, kvSet, kvConfigured } from "../../chousei/lib/kv";
 
 export { kvConfigured };
 
-export type RoomPlayer = { id: string; name: string; lives: number };
+export type RoomPlayer = { id: string; name: string; lives: number; avatar?: string };
 
 export type RoomState = {
   code: string;
   hostId: string;
   phase: "lobby" | "play" | "result";
+  mode?: "voice" | "text"; // text=各自が答えを打ち込み自動判定 / voice=通話しながら人が判定
   players: RoomPlayer[];
   turnIdx: number;
   turnCount: number;
@@ -22,6 +23,8 @@ export type RoomState = {
   outOrder: string[]; // 脱落した player.id を順に
   settings: { timerSec: number; shibariFreq: number; livesSetting: number };
   turnStartedAt: number; // タイマー同期用(epoch ms)。ターン開始でリセット
+  usedWords?: string[]; // text mode: 既出語(重複判定・正規化済み)
+  log?: { name: string; word: string; ok: boolean }[]; // text mode: 実況フィード(直近のみ)
   version: number; // 楽観ロック
   updatedAt: number;
 };
