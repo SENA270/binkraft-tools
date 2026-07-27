@@ -282,6 +282,8 @@ export default function CheeOnline() {
   useEffect(() => {
     try {
       if (localStorage.getItem("chee-bgm") === "0") setBgmOn(false);
+      const savedName = localStorage.getItem("chee-name");
+      if (savedName) setMyName(savedName);
     } catch {
       // 取得不可でも既定ON
     }
@@ -380,6 +382,11 @@ export default function CheeOnline() {
       setErr("その名前は使えません");
       return;
     }
+    try {
+      localStorage.setItem("chee-name", nm);
+    } catch {
+      // 保存できなくても続行
+    }
     setBusy(true);
     try {
       const me: RoomPlayer = { id: myId, name: nm, lives: 1, timeBankMs: BANK_MS, wins: 0 };
@@ -430,6 +437,11 @@ export default function CheeOnline() {
     if (hasNg(nm)) {
       setErr("その名前は使えません");
       return;
+    }
+    try {
+      localStorage.setItem("chee-name", nm);
+    } catch {
+      // 保存できなくても続行
     }
     const code = codeInput.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     if (!code) {
