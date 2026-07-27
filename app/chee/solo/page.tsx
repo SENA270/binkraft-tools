@@ -51,6 +51,7 @@ export default function CheeSolo() {
   const [bgmOn, setBgmOn] = useState(true);
 
   const usedRef = useRef<Set<string>>(new Set());
+  const composingRef = useRef(false); // IME変換中フラグ(変換中はカタカナ化しない)
   const bankRef = useRef(START_BANK);
   const lastTsRef = useRef(0);
   const tickRef = useRef<number | null>(null);
@@ -382,9 +383,16 @@ export default function CheeSolo() {
             <div className="flex gap-2">
               <input
                 value={input}
-                onChange={(e) => setInput(toKatakana(e.target.value))}
+                onChange={(e) => setInput(composingRef.current ? e.target.value : toKatakana(e.target.value))}
+                onCompositionStart={() => {
+                  composingRef.current = true;
+                }}
+                onCompositionEnd={(e) => {
+                  composingRef.current = false;
+                  setInput(toKatakana(e.currentTarget.value));
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") submit();
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
                 }}
                 autoFocus
                 placeholder={`${required}文字の「◯◯チー」`}

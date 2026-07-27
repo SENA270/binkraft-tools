@@ -146,6 +146,7 @@ export default function CheeOnline() {
   const wonPlayedRef = useRef(false);
   const statsSentRef = useRef(false);
   const autoStartRef = useRef(false);
+  const composingRef = useRef(false); // IME変換中フラグ(変換中はカタカナ化しない)
 
   const setRoomBoth = useCallback((s: RoomState | null) => {
     roomRef.current = s;
@@ -952,7 +953,14 @@ export default function CheeOnline() {
                 </p>
                 <input
                   value={input}
-                  onChange={(e) => setInput(toKatakana(e.target.value))}
+                  onChange={(e) => setInput(composingRef.current ? e.target.value : toKatakana(e.target.value))}
+                  onCompositionStart={() => {
+                    composingRef.current = true;
+                  }}
+                  onCompositionEnd={(e) => {
+                    composingRef.current = false;
+                    setInput(toKatakana(e.currentTarget.value));
+                  }}
                   autoFocus
                   placeholder={need > 0 ? `${need}文字の「◯◯チー」` : "例: ライチー"}
                   maxLength={20}
