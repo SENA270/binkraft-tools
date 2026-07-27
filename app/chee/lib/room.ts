@@ -15,6 +15,7 @@ export type RoomState = {
   hostId: string;
   phase: "lobby" | "play" | "result";
   mode?: "voice" | "text"; // text=各自が答えを打ち込み自動判定 / voice=通話しながら人が判定
+  random?: boolean; // ランダムマッチで作られた公開ルーム(2人揃えば自動開始)
   players: RoomPlayer[];
   turnIdx: number;
   turnCount: number;

@@ -21,6 +21,7 @@ type RoomState = {
   hostId: string;
   phase: "lobby" | "play" | "result";
   mode?: "voice" | "text";
+  random?: boolean;
   players: RoomPlayer[];
   turnIdx: number;
   turnCount: number;
@@ -126,7 +127,7 @@ function advanceTimeout(s: RoomState, now: number): NextState {
 }
 
 export default function CheeOnline() {
-  const [myId] = useState(newId);
+  const [myId, setMyId] = useState(newId);
   const [myName, setMyName] = useState("");
   const [codeInput, setCodeInput] = useState("");
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -135,6 +136,7 @@ export default function CheeOnline() {
   const [nowTick, setNowTick] = useState(Date.now());
   const [busy, setBusy] = useState(false);
   const [bgmOn, setBgmOn] = useState(true);
+  const [myStats, setMyStats] = useState<{ wins: number; games: number } | null>(null);
   const roomRef = useRef<RoomState | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const bgmTimerRef = useRef<number | null>(null);
@@ -142,6 +144,8 @@ export default function CheeOnline() {
   const bgmNextRef = useRef(0);
   const bgmOnRef = useRef(true);
   const wonPlayedRef = useRef(false);
+  const statsSentRef = useRef(false);
+  const autoStartRef = useRef(false);
 
   const setRoomBoth = useCallback((s: RoomState | null) => {
     roomRef.current = s;
@@ -284,6 +288,12 @@ export default function CheeOnline() {
       if (localStorage.getItem("chee-bgm") === "0") setBgmOn(false);
       const savedName = localStorage.getItem("chee-name");
       if (savedName) setMyName(savedName);
+      let uid = localStorage.getItem("chee-uid");
+      if (!uid) {
+        uid = newId();
+        localStorage.setItem("chee-uid", uid);
+      }
+      setMyId(uid);
     } catch {
       // 取得不可でも既定ON
     }
@@ -370,6 +380,46 @@ export default function CheeOnline() {
   }, [timeoutAdvance]);
 
   // ---- アクション ----
+  const randomMatch = async () => {
+    setErr("");
+    kickAudio();
+    const nm = myName.trim();
+    if (!nm) {
+      setErr("名前を入れてね（結果・ランキングに出ます）");
+      return;
+    }
+    if (hasNg(nm)) {
+      setErr("その名前は使えません");
+      return;
+    }
+    try {
+      localStorage.setItem("chee-name", nm);
+    } catch {
+      // 保存できなくても続行
+    }
+    setBusy(true);
+    try {
+      const me: RoomPlayer = { id: myId, name: nm, lives: 1, timeBankMs: BANK_MS, wins: 0 };
+      const r = await fetch("/api/chee/match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: me }),
+      });
+      if (r.status === 503) {
+        setErr("いまオンライン機能が使えません(サーバ設定待ち)");
+        return;
+      }
+      if (!r.ok) {
+        setErr("マッチングに失敗しました");
+        return;
+      }
+      const j = await r.json();
+      setRoomBoth(j.state);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const create = async () => {
     setErr("");
     kickAudio();
@@ -577,6 +627,55 @@ export default function CheeOnline() {
         : [];
   const historyRanking = room ? [...room.players].sort((a, b) => (b.wins ?? 0) - (a.wins ?? 0)) : [];
 
+  // ホームで通算戦績(匿名・端末ID)を取得
+  useEffect(() => {
+    if (room?.code || !myId) return;
+    let cancelled = false;
+    fetch(`/api/chee/user?uid=${myId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled && j?.stats) setMyStats({ wins: j.stats.wins, games: j.stats.games });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, room?.code]);
+
+  // 決着したら通算戦績を保存(1ゲーム1回・自分が参加していた時のみ)
+  useEffect(() => {
+    if (room?.phase === "result") {
+      if (!statsSentRef.current) {
+        statsSentRef.current = true;
+        if (room.players.some((p) => p.id === myId)) {
+          const meName = room.players.find((p) => p.id === myId)?.name || myName.trim();
+          const won = room.players.find(aliveByTime)?.id === myId;
+          fetch("/api/chee/user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uid: myId, name: meName, won }),
+          }).catch(() => {});
+        }
+      }
+    } else {
+      statsSentRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.phase, myId, myName]);
+
+  // ランダムルームは2人揃ったらホストが自動開始
+  useEffect(() => {
+    if (room?.random && room.phase === "lobby" && isHost && room.players.length >= 2) {
+      if (!autoStartRef.current) {
+        autoStartRef.current = true;
+        startGame();
+      }
+    } else if (room?.phase !== "lobby") {
+      autoStartRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.random, room?.phase, room?.players.length, isHost]);
+
   return (
     <main className="min-h-screen bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
       <style>{`
@@ -639,6 +738,23 @@ export default function CheeOnline() {
                 maxLength={12}
                 className="w-full bg-stone-800 rounded-md px-3 py-2 text-sm placeholder:text-stone-500 outline-none focus:ring-2 focus:ring-red-600"
               />
+              {myStats && myStats.games > 0 && (
+                <p className="mt-2 text-[11px] text-stone-500">
+                  あなたの通算：{myStats.wins}勝 / {myStats.games}戦（この端末）
+                </p>
+              )}
+            </section>
+
+            <section className="bg-stone-900 rounded-lg p-4 border border-red-800/50 space-y-2">
+              <h2 className="text-sm font-bold text-amber-200/90">ランダム対戦（すぐ遊ぶ）</h2>
+              <p className="text-[11px] text-stone-400">知らない誰かと自動マッチ。2人揃えば自動で開始。</p>
+              <button
+                onClick={randomMatch}
+                disabled={busy}
+                className="w-full py-3 rounded-md text-base font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition disabled:opacity-50"
+              >
+                ランダム対戦をさがす
+              </button>
             </section>
 
             <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-3">
@@ -697,24 +813,31 @@ export default function CheeOnline() {
         {/* ===== ロビー ===== */}
         {room && room.phase === "lobby" && (
           <div className="space-y-5">
-            <section className="bg-amber-100 rounded-lg p-5 border-2 border-amber-800/40 text-center">
-              <p className="text-xs text-stone-600 mb-1">暖簾の番号(友達に渡す)</p>
-              <p className="text-4xl font-black tracking-[0.35em] text-red-800" style={{ fontFamily: '"Yu Mincho",serif' }}>
-                {room.code}
-              </p>
-              <button
-                onClick={() => {
-                  try {
-                    navigator.clipboard?.writeText(room.code);
-                  } catch {
-                    // コピー不可でも番号は見えている
-                  }
-                }}
-                className="mt-2 text-[11px] text-stone-500 underline underline-offset-2"
-              >
-                番号をコピー
-              </button>
-            </section>
+            {room.random ? (
+              <section className="bg-stone-900 rounded-lg p-6 border border-stone-700 text-center">
+                <p className="text-sm text-amber-200/90 font-bold">対戦相手をさがしています…</p>
+                <p className="mt-1 text-[11px] text-stone-500">2人揃うと自動で開店（対決開始）</p>
+              </section>
+            ) : (
+              <section className="bg-amber-100 rounded-lg p-5 border-2 border-amber-800/40 text-center">
+                <p className="text-xs text-stone-600 mb-1">暖簾の番号(友達に渡す)</p>
+                <p className="text-4xl font-black tracking-[0.35em] text-red-800" style={{ fontFamily: '"Yu Mincho",serif' }}>
+                  {room.code}
+                </p>
+                <button
+                  onClick={() => {
+                    try {
+                      navigator.clipboard?.writeText(room.code);
+                    } catch {
+                      // コピー不可でも番号は見えている
+                    }
+                  }}
+                  className="mt-2 text-[11px] text-stone-500 underline underline-offset-2"
+                >
+                  番号をコピー
+                </button>
+              </section>
+            )}
 
             <section className="bg-stone-900 rounded-lg p-4 border border-stone-700">
               <h2 className="text-sm font-bold mb-3 text-amber-200/90">お客さん ({room.players.length}人)</h2>
@@ -741,7 +864,7 @@ export default function CheeOnline() {
               <p className="mt-3 text-[11px] text-stone-500">持ち時間 各30秒 ・ 1手目は自由、2手目から文字数しばり</p>
             </section>
 
-            {isHost ? (
+            {room.random ? null : isHost ? (
               <button
                 onClick={startGame}
                 disabled={room.players.length < 2}
