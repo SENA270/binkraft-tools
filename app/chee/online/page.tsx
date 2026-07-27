@@ -62,6 +62,10 @@ function newId(): string {
 function normalizeWord(w: string): string {
   return w.trim().replace(/\s+/g, "").toLowerCase();
 }
+// ひらがな→カタカナ(入力を全部カタカナに)
+function toKatakana(s: string): string {
+  return s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+}
 function endsWithChee(w: string): boolean {
   return /(チー|ちー)$/.test(w.trim());
 }
@@ -813,7 +817,7 @@ export default function CheeOnline() {
                 </p>
                 <input
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => setInput(toKatakana(e.target.value))}
                   autoFocus
                   placeholder={need > 0 ? `${need}文字の「◯◯チー」` : "例: ライチー"}
                   maxLength={20}

@@ -28,6 +28,10 @@ function endsWithChee(w: string): boolean {
 function normalizeWord(w: string): string {
   return w.trim().replace(/\s+/g, "").toLowerCase();
 }
+// ひらがな→カタカナ(入力を全部カタカナに)
+function toKatakana(s: string): string {
+  return s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
+}
 function hasNg(w: string): boolean {
   const n = w.replace(/\s+/g, "");
   return NG_WORDS.some((ng) => n.includes(ng));
@@ -378,7 +382,7 @@ export default function CheeSolo() {
             <div className="flex gap-2">
               <input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => setInput(toKatakana(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") submit();
                 }}
