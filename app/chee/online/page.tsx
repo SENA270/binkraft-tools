@@ -42,10 +42,13 @@ const LEN_CHOICES = [3, 4, 5, 6, 7, 8]; // 2文字だと「チー」しか無く
 // 麺屋の暖簾に映える札の色(絵文字は使わず色で識別)
 const COLORS = ["#e0503a", "#e0a133", "#5aa06a", "#4f8fc0", "#b06ac4", "#d0678f", "#5aa89f", "#c08a3a"];
 
-// BGM: Web Audioで生成する簡単なループ(音声ファイル不要・著作権フリー)。ゆったりした和風ペンタトニック。
-const BGM_MELODY = [440, 0, 392, 440, 329.63, 0, 392, 0, 293.66, 329.63, 392, 0, 329.63, 293.66, 246.94, 0];
-const BGM_BASS = [110, 130.81, 146.83, 130.81];
-const BGM_EIGHTH = 0.3; // 8分音符の長さ(秒)
+// BGM: Web Audioで生成するループ(音声ファイル不要・著作権フリー)。ロビーは静か、対戦中はもりあがる。
+const BGM_LOBBY_MELODY = [440, 0, 392, 440, 329.63, 0, 392, 0, 293.66, 329.63, 392, 0, 329.63, 293.66, 246.94, 0];
+const BGM_LOBBY_BASS = [110, 130.81, 146.83, 130.81];
+const BGM_PLAY_MELODY = [523.25, 659.25, 587.33, 659.25, 783.99, 659.25, 587.33, 523.25, 659.25, 783.99, 880, 783.99, 659.25, 587.33, 523.25, 587.33];
+const BGM_PLAY_BASS = [130.81, 130.81, 196, 146.83];
+const EIGHTH_LOBBY = 0.3;
+const EIGHTH_PLAY = 0.2; // 対戦中は速くしてもりあげる
 
 const NG_WORDS = ["しね", "死ね", "ころす", "殺す", "きもい", "うざい", "ぶす", "デブ"];
 
@@ -131,6 +134,8 @@ export default function CheeOnline() {
   const bgmTimerRef = useRef<number | null>(null);
   const bgmStepRef = useRef(0);
   const bgmNextRef = useRef(0);
+  const bgmOnRef = useRef(true);
+  const wonPlayedRef = useRef(false);
 
   const setRoomBoth = useCallback((s: RoomState | null) => {
     roomRef.current = s;
@@ -152,34 +157,50 @@ export default function CheeOnline() {
     }
   }, []);
 
-  const bgmPlayStep = useCallback((step: number, time: number) => {
+  const bgmPlayStep = useCallback((step: number, time: number, mode: "lobby" | "play") => {
     const ctx = audioCtxRef.current;
     if (!ctx) return;
-    const mel = BGM_MELODY[step % BGM_MELODY.length];
+    const melArr = mode === "play" ? BGM_PLAY_MELODY : BGM_LOBBY_MELODY;
+    const bassArr = mode === "play" ? BGM_PLAY_BASS : BGM_LOBBY_BASS;
+    const eighth = mode === "play" ? EIGHTH_PLAY : EIGHTH_LOBBY;
+    const mel = melArr[step % melArr.length];
     if (mel > 0) {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.type = "triangle";
       o.frequency.value = mel;
       g.gain.setValueAtTime(0.0001, time);
-      g.gain.exponentialRampToValueAtTime(0.05, time + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, time + BGM_EIGHTH * 0.9);
+      g.gain.exponentialRampToValueAtTime(mode === "play" ? 0.06 : 0.05, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + eighth * 0.9);
       o.connect(g).connect(ctx.destination);
       o.start(time);
-      o.stop(time + BGM_EIGHTH);
+      o.stop(time + eighth);
     }
     if (step % 4 === 0) {
-      const b = BGM_BASS[(step / 4) % BGM_BASS.length];
+      const b = bassArr[Math.floor(step / 4) % bassArr.length];
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.type = "sine";
       o.frequency.value = b;
       g.gain.setValueAtTime(0.0001, time);
-      g.gain.exponentialRampToValueAtTime(0.04, time + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, time + BGM_EIGHTH * 1.8);
+      g.gain.exponentialRampToValueAtTime(0.045, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + eighth * 1.8);
       o.connect(g).connect(ctx.destination);
       o.start(time);
-      o.stop(time + BGM_EIGHTH * 2);
+      o.stop(time + eighth * 2);
+    }
+    // 対戦中はキックドラムで疾走感を足す
+    if (mode === "play" && step % 2 === 0) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(150, time);
+      o.frequency.exponentialRampToValueAtTime(50, time + 0.12);
+      g.gain.setValueAtTime(0.08, time);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + 0.15);
+      o.connect(g).connect(ctx.destination);
+      o.start(time);
+      o.stop(time + 0.16);
     }
   }, []);
 
@@ -192,9 +213,11 @@ export default function CheeOnline() {
       const c = audioCtxRef.current;
       if (!c) return;
       while (bgmNextRef.current < c.currentTime + 0.12) {
-        bgmPlayStep(bgmStepRef.current, bgmNextRef.current);
-        bgmNextRef.current += BGM_EIGHTH;
-        bgmStepRef.current = (bgmStepRef.current + 1) % BGM_MELODY.length;
+        const mode = roomRef.current?.phase === "play" ? "play" : "lobby";
+        bgmPlayStep(bgmStepRef.current, bgmNextRef.current, mode);
+        bgmNextRef.current += mode === "play" ? EIGHTH_PLAY : EIGHTH_LOBBY;
+        const len = mode === "play" ? BGM_PLAY_MELODY.length : BGM_LOBBY_MELODY.length;
+        bgmStepRef.current = (bgmStepRef.current + 1) % len;
       }
     }, 25);
   }, [bgmPlayStep]);
@@ -228,6 +251,28 @@ export default function CheeOnline() {
     });
   };
 
+  // 勝利ファンファーレ(店主の「チー！！」の効果音)
+  const playFanfare = useCallback(() => {
+    if (!bgmOnRef.current) return;
+    ensureAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    const t0 = ctx.currentTime + 0.03;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const time = t0 + i * 0.14;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.12, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + 0.32);
+      o.connect(g).connect(ctx.destination);
+      o.start(time);
+      o.stop(time + 0.34);
+    });
+  }, [ensureAudio]);
+
   useEffect(() => {
     try {
       if (localStorage.getItem("chee-bgm") === "0") setBgmOn(false);
@@ -235,7 +280,21 @@ export default function CheeOnline() {
       // 取得不可でも既定ON
     }
   }, []);
+  useEffect(() => {
+    bgmOnRef.current = bgmOn;
+  }, [bgmOn]);
   useEffect(() => () => stopBgm(), [stopBgm]);
+  // 決着したら一度だけ店主の「チー！！」ファンファーレ
+  useEffect(() => {
+    if (room?.phase === "result") {
+      if (!wonPlayedRef.current) {
+        wonPlayedRef.current = true;
+        playFanfare();
+      }
+    } else {
+      wonPlayedRef.current = false;
+    }
+  }, [room?.phase, playFanfare]);
 
   const applyMutation = useCallback(
     async (fn: (s: RoomState) => NextState | null) => {
@@ -566,7 +625,7 @@ export default function CheeOnline() {
             </section>
 
             <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-3">
-              <h2 className="text-sm font-bold text-amber-200/90">暖簾をくぐる (番号で参加)</h2>
+              <h2 className="text-sm font-bold text-amber-200/90">来店する (番号で参加)</h2>
               <div className="flex gap-2">
                 <input
                   value={codeInput}
@@ -583,7 +642,7 @@ export default function CheeOnline() {
                   disabled={busy}
                   className="px-5 rounded-md bg-red-700 hover:bg-red-600 text-stone-50 text-sm font-bold disabled:opacity-50"
                 >
-                  入店
+                  来店する
                 </button>
               </div>
             </section>
@@ -656,7 +715,7 @@ export default function CheeOnline() {
                 {room.players.length < 2 ? "あと1人待ち…" : "対決スタート"}
               </button>
             ) : (
-              <p className="text-center text-sm text-stone-400 py-4">店主の開始を待っています…</p>
+              <p className="text-center text-sm text-stone-400 py-4">いらっしゃい！店主が一杯目を決めています…</p>
             )}
             {isHost && (
               <button onClick={dissolve} className="w-full text-xs text-stone-500 underline underline-offset-2">
@@ -815,7 +874,11 @@ export default function CheeOnline() {
         {room && room.phase === "result" && (
           <div className="space-y-5 text-center">
             <section className="bg-amber-100 rounded-lg p-8 border-2 border-amber-800/40">
-              <p className="text-xs tracking-[0.3em] text-red-800/80 mb-2">本日の一等</p>
+              <p className="text-6xl font-black text-red-700 leading-none" style={{ fontFamily: '"Yu Mincho",serif' }}>
+                チー！！
+              </p>
+              <p className="mt-2 mb-4 text-sm text-stone-700">店主「{winner?.name || "—"} の勝ち、チー！！」</p>
+              <p className="text-xs tracking-[0.3em] text-red-800/80 mb-1">本日の一等</p>
               <p className="text-3xl font-black text-red-800" style={{ fontFamily: '"Yu Mincho",serif' }}>
                 {winner?.name || "—"}
               </p>
