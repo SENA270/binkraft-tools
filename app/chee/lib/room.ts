@@ -8,7 +8,7 @@ import { kvGet, kvSet, kvDel, kvConfigured } from "../../chousei/lib/kv";
 
 export { kvConfigured };
 
-export type RoomPlayer = { id: string; name: string; lives: number; avatar?: string; timeBankMs?: number };
+export type RoomPlayer = { id: string; name: string; lives: number; avatar?: string; timeBankMs?: number; wins?: number };
 
 export type RoomState = {
   code: string;

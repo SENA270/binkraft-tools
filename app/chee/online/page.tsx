@@ -15,7 +15,7 @@ import Link from "next/link";
  * ※ 対面(声で遊ぶ演技しばり版)は /chee のまま。UIはラーメン屋の屋台イメージ。絵文字は使わない。
  */
 
-type RoomPlayer = { id: string; name: string; lives: number; avatar?: string; timeBankMs?: number };
+type RoomPlayer = { id: string; name: string; lives: number; avatar?: string; timeBankMs?: number; wins?: number };
 type RoomState = {
   code: string;
   hostId: string;
@@ -106,7 +106,9 @@ function advanceTimeout(s: RoomState, now: number): NextState {
   const outOrder = [...s.outOrder, cur.id];
   const log = [...(s.log || []), { name: cur.name, word: "持ち時間切れ", ok: false }].slice(-24);
   if (players.filter(aliveByTime).length <= 1) {
-    return { ...s, players, outOrder, log, phase: "result" };
+    const champ = players.find(aliveByTime);
+    const ranked = champ ? players.map((p) => (p.id === champ.id ? { ...p, wins: (p.wins ?? 0) + 1 } : p)) : players;
+    return { ...s, players: ranked, outOrder, log, phase: "result" };
   }
   return {
     ...s,
@@ -371,7 +373,7 @@ export default function CheeOnline() {
     }
     setBusy(true);
     try {
-      const me: RoomPlayer = { id: myId, name: myName.trim() || "店主", lives: 1, timeBankMs: BANK_MS };
+      const me: RoomPlayer = { id: myId, name: myName.trim() || "客1", lives: 1, timeBankMs: BANK_MS, wins: 0 };
       const init: NextState = {
         hostId: myId,
         phase: "lobby",
@@ -446,7 +448,7 @@ export default function CheeOnline() {
         return;
       }
       setRoomBoth(s);
-      const me: RoomPlayer = { id: myId, name: myName.trim() || "客", lives: 1, timeBankMs: BANK_MS };
+      const me: RoomPlayer = { id: myId, name: myName.trim() || `客${s.players.length + 1}`, lives: 1, timeBankMs: BANK_MS, wins: 0 };
       await applyMutation((cur) =>
         cur.players.some((p) => p.id === myId) ? cur : { ...cur, players: [...cur.players, me] }
       );
@@ -547,6 +549,7 @@ export default function CheeOnline() {
       : room
         ? [...room.outOrder].reverse().map(nameById)
         : [];
+  const historyRanking = room ? [...room.players].sort((a, b) => (b.wins ?? 0) - (a.wins ?? 0)) : [];
 
   return (
     <main className="min-h-screen bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
@@ -690,7 +693,6 @@ export default function CheeOnline() {
                   >
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorOf(i) }} />
                     {p.name}
-                    {p.id === room.hostId ? "（店主）" : ""}
                     {isHost && p.id !== room.hostId && (
                       <button
                         onClick={() => kickInLobby(p.id)}
@@ -715,7 +717,7 @@ export default function CheeOnline() {
                 {room.players.length < 2 ? "あと1人待ち…" : "対決スタート"}
               </button>
             ) : (
-              <p className="text-center text-sm text-stone-400 py-4">いらっしゃい！店主が一杯目を決めています…</p>
+              <p className="text-center text-sm text-stone-400 py-4">いらっしゃい！まもなく開店です…</p>
             )}
             {isHost && (
               <button onClick={dissolve} className="w-full text-xs text-stone-500 underline underline-offset-2">
@@ -742,7 +744,7 @@ export default function CheeOnline() {
                 </p>
               ) : (
                 <p className="text-2xl font-black text-amber-100">
-                  {room.turnCount === 0 ? "店主の一杯！自由に「◯◯チー」" : "自由に「◯◯チー」なら何でも"}
+                  {room.turnCount === 0 ? "口火の一杯！自由に「◯◯チー」" : "自由に「◯◯チー」なら何でも"}
                 </p>
               )}
             </section>
@@ -789,7 +791,7 @@ export default function CheeOnline() {
                   {need > 0
                     ? `あなたの番！${need}文字の「◯◯チー」を打つ`
                     : room.turnCount === 0
-                      ? "店主として口火を！自由に「◯◯チー」を打つ"
+                      ? "口火の一杯！自由に「◯◯チー」を打つ"
                       : "あなたの番！「◯◯チー」を打つ(自由)"}
                 </p>
                 <input
@@ -885,6 +887,24 @@ export default function CheeOnline() {
               <p className="mt-3 text-xs text-stone-600">全 {room.turnCount + 1} 手 ・ 出た言葉 {room.usedWords?.length ?? 0} 語</p>
             </section>
 
+            {room.players.some((p) => (p.wins ?? 0) > 0) && (
+              <section className="bg-stone-900 rounded-lg p-4 border border-amber-800/40 text-left">
+                <h2 className="text-xs font-bold text-amber-200/90 mb-2 text-center">歴代ランキング（この店の通算勝利）</h2>
+                <ol className="space-y-1">
+                  {historyRanking.map((p, i) => (
+                    <li key={p.id} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        <span className="w-8 text-center text-stone-400">{i === 0 ? "一等" : `${i + 1}位`}</span>
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorOf(idxOf(p.id)) }} />
+                        <span className={i === 0 ? "font-bold text-amber-100" : "text-stone-300"}>{p.name}</span>
+                      </span>
+                      <span className="text-xs text-stone-400">{p.wins ?? 0}勝</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
             {ranking.length > 1 && (
               <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 text-left">
                 <h2 className="text-xs font-bold text-amber-200/90 mb-2 text-center">番付</h2>
@@ -910,7 +930,7 @@ export default function CheeOnline() {
                 同じ顔ぶれでもう一戦
               </button>
             ) : (
-              <p className="text-sm text-stone-400">店主の再戦を待っています…</p>
+              <p className="text-sm text-stone-400">再戦をお待ちください…</p>
             )}
             <div>
               <button onClick={leave} className="text-xs text-stone-500 underline underline-offset-2">
