@@ -202,6 +202,10 @@ export default function CheeOnline() {
   // ---- アクション ----
   const create = async () => {
     setErr("");
+    if (hasNg(myName)) {
+      setErr("その名前は使えません");
+      return;
+    }
     setBusy(true);
     try {
       const me: RoomPlayer = { id: myId, name: myName.trim() || "ホスト", lives: livesSetting, avatar: AVATARS[0] };
@@ -242,6 +246,10 @@ export default function CheeOnline() {
 
   const join = async () => {
     setErr("");
+    if (hasNg(myName)) {
+      setErr("その名前は使えません");
+      return;
+    }
     const code = codeInput.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     if (!code) {
       setErr("ルームコードを入れてね");
@@ -330,6 +338,27 @@ export default function CheeOnline() {
   const leave = () => setRoomBoth(null);
   const backToLobby = () =>
     applyMutation((s) => ({ ...s, phase: "lobby", log: [], usedWords: [] }));
+
+  // ホスト操作(モデレーション: 荒らし・AFK・不適切入力への対処)
+  const dissolve = async () => {
+    const cur = roomRef.current;
+    if (cur) {
+      try {
+        await fetch(`/api/chee/room?code=${cur.code}`, { method: "DELETE" });
+      } catch {
+        // 削除失敗でもローカルは離脱する
+      }
+    }
+    leave();
+  };
+  const kickInLobby = (id: string) =>
+    applyMutation((s) =>
+      s.hostId === myId && s.phase === "lobby" && id !== s.hostId
+        ? { ...s, players: s.players.filter((p) => p.id !== id) }
+        : null
+    );
+  const skipCurrent = () =>
+    applyMutation((s) => (s.hostId === myId && s.phase === "play" ? advanceOut(s, "スキップ") : null));
 
   // ---- 派生 ----
   const isHost = room?.hostId === myId;
@@ -492,9 +521,21 @@ export default function CheeOnline() {
               <h2 className="text-sm font-bold mb-3 text-slate-300">参加者 ({room.players.length}人)</h2>
               <div className="flex flex-wrap gap-2">
                 {room.players.map((p) => (
-                  <span key={p.id} className="text-sm px-3 py-1.5 rounded-full bg-slate-800 text-slate-200">
+                  <span
+                    key={p.id}
+                    className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-full bg-slate-800 text-slate-200"
+                  >
                     {p.avatar} {p.name}
                     {p.id === room.hostId ? " 👑" : ""}
+                    {isHost && p.id !== room.hostId && (
+                      <button
+                        onClick={() => kickInLobby(p.id)}
+                        aria-label={`${p.name}を退出させる`}
+                        className="ml-1 text-[11px] text-red-300 hover:text-red-200"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -511,6 +552,11 @@ export default function CheeOnline() {
               </button>
             ) : (
               <p className="text-center text-sm text-slate-400 py-4">ホストの開始を待っています…</p>
+            )}
+            {isHost && (
+              <button onClick={dissolve} className="w-full text-xs text-slate-500 underline underline-offset-2">
+                部屋を解散する(データ削除)
+              </button>
             )}
           </div>
         )}
@@ -601,6 +647,17 @@ export default function CheeOnline() {
                 </span>
               ))}
             </div>
+
+            {isHost && (
+              <div className="flex gap-4 justify-center pt-1">
+                <button onClick={skipCurrent} className="text-[11px] text-slate-400 underline underline-offset-2">
+                  現在の人をスキップ(進まない時)
+                </button>
+                <button onClick={dissolve} className="text-[11px] text-red-300 underline underline-offset-2">
+                  部屋を解散
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -648,6 +705,11 @@ export default function CheeOnline() {
             <button onClick={leave} className="text-xs text-slate-500 underline underline-offset-2">
               退出する
             </button>
+            {isHost && (
+              <button onClick={dissolve} className="ml-4 text-xs text-red-300 underline underline-offset-2">
+                部屋を解散
+              </button>
+            )}
           </div>
         )}
       </div>

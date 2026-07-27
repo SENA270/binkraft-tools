@@ -5,7 +5,7 @@
 //  PUT  { code, version, next } → 楽観ロック更新（version 不一致は 409 + 現在値）
 // KV 未設定なら 503（クライアントは「オンライン非対応」表示にフォールバック）。
 import { NextRequest, NextResponse } from "next/server";
-import { kvConfigured, createRoom, getRoom, updateRoom, type RoomState } from "../../../chee/lib/room";
+import { kvConfigured, createRoom, getRoom, updateRoom, deleteRoom, type RoomState } from "../../../chee/lib/room";
 
 export const dynamic = "force-dynamic";
 
@@ -47,4 +47,13 @@ export async function PUT(req: NextRequest) {
   const res = await updateRoom(code.toUpperCase(), version, next);
   if (!res.ok) return NextResponse.json({ error: "conflict", current: res.current }, { status: 409 });
   return NextResponse.json({ state: res.state });
+}
+
+// DELETE ?code=XXXX → ルームを即時削除(ホストの「解散」・荒らし部屋の除去用)
+export async function DELETE(req: NextRequest) {
+  if (!kvConfigured()) return NextResponse.json({ error: "online_unavailable" }, { status: 503 });
+  const code = (new URL(req.url).searchParams.get("code") || "").toUpperCase().slice(0, 6);
+  if (!code) return NextResponse.json({ error: "code required" }, { status: 400 });
+  await deleteRoom(code);
+  return NextResponse.json({ ok: true });
 }

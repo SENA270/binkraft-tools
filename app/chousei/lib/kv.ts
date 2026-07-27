@@ -29,8 +29,8 @@ export async function kvGet(key: string): Promise<string | null> {
   return typeof r === "string" ? r : null;
 }
 
-export async function kvSet(key: string, value: string): Promise<void> {
-  await cmd(["SET", key, value, "EX", TTL_SEC]);
+export async function kvSet(key: string, value: string, ttlSec: number = TTL_SEC): Promise<void> {
+  await cmd(["SET", key, value, "EX", ttlSec]);
 }
 
 export async function kvDel(key: string): Promise<void> {

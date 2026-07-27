@@ -4,7 +4,7 @@
 // 行動した端末が新しい state を version 付きで PUT、他端末はポーリングで取得して画面を同期する。
 // 判定(セーフ/アウト)は人間(通話/対面)が行い、その結果を state に反映する = ゲームの本質を維持。
 // 保存は既存の Upstash Redis(KV)を流用。未設定なら kvConfigured()=false。
-import { kvGet, kvSet, kvConfigured } from "../../chousei/lib/kv";
+import { kvGet, kvSet, kvDel, kvConfigured } from "../../chousei/lib/kv";
 
 export { kvConfigured };
 
@@ -49,8 +49,14 @@ export async function getRoom(code: string): Promise<RoomState | null> {
   }
 }
 
+const ROOM_TTL_SEC = 60 * 60 * 6; // 6時間で自動失効(遊び終わったルーム・不適切な入力を長期保持しない)
+
 export async function saveRoom(state: RoomState): Promise<void> {
-  await kvSet(key(state.code), JSON.stringify(state));
+  await kvSet(key(state.code), JSON.stringify(state), ROOM_TTL_SEC);
+}
+
+export async function deleteRoom(code: string): Promise<void> {
+  await kvDel(key(code));
 }
 
 /** 未使用コードを引いて新規ルームを作成。 */
