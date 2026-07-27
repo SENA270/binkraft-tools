@@ -1,10 +1,10 @@
 import { ImageResponse } from "next/og";
 
-// LINE/X 共有時のプレビュー画像 (中高生の拡散経路はLINE共有が本命のため見栄え重視)
-// next/og 標準機能のみ使用・依存追加なし
+// LINE/X 共有時のプレビュー画像。麺屋チー(早撃ちワードバトル)の世界観・絵文字なし。
+// next/og 標準機能のみ使用・依存追加なし。/chee 配下(online・solo含む)に適用。
 
 export const runtime = "edge";
-export const alt = "チーゲーム — 語尾「チー」縛りワードバトル";
+export const alt = "麺屋チー — 語尾「チー」の早撃ちワードバトル";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -19,50 +19,56 @@ export default function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #020617 0%, #0f172a 60%, #064e3b 100%)",
-          color: "#fff",
+          background: "linear-gradient(135deg, #1c1410 0%, #2a1411 55%, #7f1d1d 100%)",
+          color: "#f5f0e8",
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", fontSize: 40, color: "#94a3b8", marginBottom: 8 }}>
-          休み時間の新定番ワードゲーム
-        </div>
+        {/* 暖簾(のれん) */}
         <div
           style={{
             display: "flex",
-            fontSize: 150,
-            fontWeight: 900,
-            background: "linear-gradient(90deg, #34d399, #5eead4)",
-            backgroundClip: "text",
-            color: "transparent",
-            letterSpacing: 4,
+            flexDirection: "column",
+            alignItems: "center",
+            background: "#991b1b",
+            padding: "22px 80px 34px",
+            borderRadius: "0 0 22px 22px",
+            border: "3px solid #450a0a",
           }}
         >
-          チーゲーム
+          <div style={{ display: "flex", fontSize: 30, letterSpacing: 22, color: "#fecaca", marginBottom: 6 }}>
+            麺 屋
+          </div>
+          <div style={{ display: "flex", fontSize: 150, fontWeight: 900, letterSpacing: 16, color: "#ffffff" }}>
+            チー
+          </div>
         </div>
-        <div style={{ display: "flex", fontSize: 44, color: "#e2e8f0", marginTop: 12 }}>
-          「チー」で終わる言葉を順番に言うだけ 🀄
+
+        <div style={{ display: "flex", fontSize: 46, color: "#fde68a", marginTop: 40, fontWeight: 700 }}>
+          語尾「チー」の早撃ちワードバトル
         </div>
-        <div style={{ display: "flex", gap: 18, marginTop: 44 }}>
-          {["悪役っぽく言う", "ささやき声で", "先生の説教っぽく"].map((t) => (
+
+        <div style={{ display: "flex", gap: 18, marginTop: 34 }}>
+          {["ランダム対戦", "持ち時間30秒", "文字数しばり"].map((t) => (
             <div
               key={t}
               style={{
                 display: "flex",
-                fontSize: 30,
-                padding: "14px 30px",
+                fontSize: 28,
+                padding: "12px 26px",
                 borderRadius: 999,
-                background: "rgba(52,211,153,0.15)",
-                border: "2px solid rgba(52,211,153,0.5)",
-                color: "#a7f3d0",
+                background: "rgba(245,158,11,0.15)",
+                border: "2px solid rgba(245,158,11,0.6)",
+                color: "#fcd34d",
               }}
             >
               {t}
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", fontSize: 30, color: "#64748b", marginTop: 48 }}>
-          しばりお題50種以上・スマホ1台・無料・インストール不要
+
+        <div style={{ display: "flex", fontSize: 28, color: "#a8a29e", marginTop: 42 }}>
+          オンライン対戦・ひとり練習・対面で ／ 無料・登録不要
         </div>
       </div>
     ),
