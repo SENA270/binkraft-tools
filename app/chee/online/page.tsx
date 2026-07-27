@@ -143,6 +143,7 @@ export default function CheeOnline() {
   const [bgmOn, setBgmOn] = useState(true);
   const [myStats, setMyStats] = useState<{ wins: number; games: number } | null>(null);
   const [showOpening, setShowOpening] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const roomRef = useRef<RoomState | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const bgmTimerRef = useRef<number | null>(null);
@@ -746,20 +747,20 @@ export default function CheeOnline() {
         </div>
 
         {/* 暖簾(のれん) */}
-        <div className="mb-6" style={{ animation: "chee-sway 5s ease-in-out infinite", transformOrigin: "top center" }}>
-          <div className="mx-auto rounded-b-lg bg-red-800 px-4 pt-4 pb-5 text-center border-x-2 border-b-2 border-red-950 shadow-lg shadow-black/40">
-            <p className="text-[10px] tracking-[0.5em] text-red-200/80 mb-1">麺 屋</p>
+        <div className="mb-3" style={{ animation: "chee-sway 5s ease-in-out infinite", transformOrigin: "top center" }}>
+          <div className="mx-auto rounded-b-lg bg-red-800 px-4 pt-2.5 pb-3 text-center border-x-2 border-b-2 border-red-950 shadow-lg shadow-black/40">
+            <p className="text-[9px] tracking-[0.5em] text-red-200/80">麺 屋</p>
             <h1
-              className="text-5xl font-black tracking-[0.15em] text-stone-50"
+              className="text-4xl font-black tracking-[0.15em] text-stone-50"
               style={{ fontFamily: '"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif' }}
             >
               チー
             </h1>
-            <p className="text-[11px] text-red-100/90 mt-1 tracking-widest">早撃ち・オンライン対決</p>
+            <p className="text-[10px] text-red-100/90 tracking-widest">早撃ち・オンライン対決</p>
           </div>
           <div className="flex gap-1 justify-center">
             {Array.from({ length: 6 }).map((_, i) => (
-              <span key={i} className="h-3 w-9 bg-red-800 rounded-b-md border-x-2 border-b-2 border-red-950" />
+              <span key={i} className="h-2.5 w-9 bg-red-800 rounded-b-md border-x-2 border-b-2 border-red-950" />
             ))}
           </div>
         </div>
@@ -772,89 +773,74 @@ export default function CheeOnline() {
 
         {/* ===== 入口(作成/参加) ===== */}
         {!room && (
-          <div className="space-y-5">
-            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700">
-              <h2 className="text-sm font-bold mb-3 text-amber-200/90">お名前（必須）</h2>
+          <div className="space-y-3">
+            <div>
               <input
                 value={myName}
                 onChange={(e) => setMyName(e.target.value)}
-                placeholder="なまえ（結果・ランキングに出ます）"
+                placeholder="お名前（必須・結果やランキングに出ます）"
                 maxLength={12}
-                className="w-full bg-stone-800 rounded-md px-3 py-2 text-sm placeholder:text-stone-500 outline-none focus:ring-2 focus:ring-red-600"
+                className="w-full bg-stone-800 rounded-md px-3 py-2.5 text-base outline-none focus:ring-2 focus:ring-red-600 border border-stone-700"
               />
               {myStats && myStats.games > 0 && (
-                <p className="mt-2 text-[11px] text-stone-500">
+                <p className="mt-1 text-center text-[11px] text-stone-500">
                   あなたの通算：{myStats.wins}勝 / {myStats.games}戦（この端末）
                 </p>
               )}
-            </section>
+            </div>
 
-            <section className="bg-stone-900 rounded-lg p-4 border border-red-800/50 space-y-2">
-              <h2 className="text-sm font-bold text-amber-200/90">ランダム対戦（すぐ遊ぶ）</h2>
-              <p className="text-[11px] text-stone-400">知らない誰かと自動マッチ。2人揃えば自動で開始。</p>
-              <button
-                onClick={randomMatch}
-                disabled={busy}
-                className="w-full py-3 rounded-md text-base font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition disabled:opacity-50"
-              >
-                ランダム対戦をさがす
-              </button>
-            </section>
+            <button
+              onClick={randomMatch}
+              disabled={busy}
+              className="w-full py-4 rounded-lg text-lg font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition disabled:opacity-50 border border-red-500/40"
+            >
+              ランダム対戦をさがす
+            </button>
 
-            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-3">
-              <h2 className="text-sm font-bold text-amber-200/90">暖簾を出す (部屋を作る)</h2>
-              <p className="text-[11px] text-stone-400">持ち時間30秒の早撃ち勝負。作ると番号(コード)が出るので友達に渡してね。</p>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={create}
                 disabled={busy}
-                className="w-full py-3 rounded-md text-base font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition disabled:opacity-50"
+                className="flex flex-col items-center justify-center py-3 rounded-md text-sm font-black bg-stone-800 hover:bg-stone-700 text-stone-100 active:scale-[0.98] transition disabled:opacity-50 border border-stone-700"
               >
                 暖簾を出す
+                <span className="text-[10px] font-normal text-stone-400">部屋を作る</span>
               </button>
-            </section>
-
-            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-3">
-              <h2 className="text-sm font-bold text-amber-200/90">来店する (番号で参加)</h2>
-              <div className="flex gap-2">
-                <input
-                  value={codeInput}
-                  onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") join();
-                  }}
-                  placeholder="ABCD"
-                  maxLength={6}
-                  className="flex-1 bg-stone-800 rounded-md px-3 py-2 text-lg font-black tracking-[0.4em] text-center placeholder:text-stone-600 outline-none focus:ring-2 focus:ring-red-600"
-                />
-                <button
-                  onClick={join}
-                  disabled={busy}
-                  className="px-5 rounded-md bg-red-700 hover:bg-red-600 text-stone-50 text-sm font-bold disabled:opacity-50"
-                >
-                  来店する
-                </button>
-              </div>
-            </section>
-
-            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-2">
-              <h2 className="text-sm font-bold text-amber-200/90">ひとりで練習（1人用）</h2>
-              <p className="text-[11px] text-stone-400">相手がいなくてもOK。文字数のお題を早撃ちでこなす自己ベスト挑戦。</p>
               <Link
                 href="/chee/solo"
-                className="block w-full py-3 rounded-md text-center text-base font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition"
+                className="flex flex-col items-center justify-center py-3 rounded-md text-sm font-black bg-stone-800 hover:bg-stone-700 text-stone-100 active:scale-[0.98] transition border border-stone-700"
               >
-                ひとりで練習する
+                ひとりで練習
+                <span className="text-[10px] font-normal text-stone-400">1人用</span>
               </Link>
-            </section>
+            </div>
 
-            <section className="pt-3 border-t border-stone-800 text-sm text-stone-400 leading-relaxed space-y-2">
-              <h2 className="text-amber-200/90 font-bold">早撃ちチー対決の遊び方</h2>
-              <p>
-                各自<b className="text-amber-200">持ち時間30秒</b>。自分の番の間だけ時計が減り、<b className="text-red-300">0になった人の負け</b>。
-                <b className="text-amber-200">1手目は自由</b>に「◯◯チー」。答えた人が「次は<b className="text-amber-200">◯文字</b>」を指定→<b className="text-amber-200">2手目から</b>はその文字数ちょうどを返す(既出は無効)。
-                考えている間も時計は減るので、早撃ちが勝ち。最後の1人が優勝。
-              </p>
-            </section>
+            <div className="flex gap-2">
+              <input
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") join();
+                }}
+                placeholder="番号で参加 (ABCD)"
+                maxLength={6}
+                className="flex-1 bg-stone-800 rounded-md px-3 py-2.5 text-base font-black tracking-[0.3em] text-center placeholder:font-normal placeholder:tracking-normal placeholder:text-stone-600 outline-none focus:ring-2 focus:ring-red-600 border border-stone-700"
+              />
+              <button
+                onClick={join}
+                disabled={busy}
+                className="px-5 rounded-md bg-stone-800 hover:bg-stone-700 text-stone-100 text-sm font-bold disabled:opacity-50 border border-stone-700"
+              >
+                来店
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowRules(true)}
+              className="w-full pt-1 text-center text-xs text-stone-500 underline underline-offset-2"
+            >
+              遊び方をみる
+            </button>
           </div>
         )}
 
@@ -1159,6 +1145,33 @@ export default function CheeOnline() {
           </div>
         )}
       </div>
+
+      {showRules && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-5"
+          onClick={() => setShowRules(false)}
+        >
+          <div
+            className="bg-stone-900 rounded-lg p-5 max-w-sm w-full border border-stone-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-black mb-3 text-amber-200">早撃ちチー対決の遊び方</h2>
+            <p className="text-sm text-stone-300 leading-relaxed">
+              各自<b className="text-amber-200">持ち時間30秒</b>。自分の番の間だけ時計が減り、
+              <b className="text-red-300">0になった人の負け</b>。
+              <b className="text-amber-200">1手目は自由</b>に「◯◯チー」。答えた人が「次は
+              <b className="text-amber-200">◯文字</b>」を指定→<b className="text-amber-200">2手目から</b>
+              はその文字数ちょうどを返す(既出は無効)。考えている間も時計は減るので、早撃ちが勝ち。最後の1人が優勝。
+            </p>
+            <button
+              onClick={() => setShowRules(false)}
+              className="mt-4 w-full py-2.5 rounded-md bg-red-700 text-stone-50 font-bold text-sm"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
       {showOpening && room?.phase === "play" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
