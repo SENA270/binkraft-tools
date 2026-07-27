@@ -646,6 +646,12 @@ export default function CheeGame() {
             >
               離れた友達と オンライン早撃ち対決 →
             </Link>
+            <Link
+              href="/chee/solo"
+              className="block rounded-2xl border border-amber-800 bg-gradient-to-r from-amber-950 to-red-950 p-3 text-center text-sm font-bold text-amber-200 active:scale-[0.99] transition"
+            >
+              ひとりで練習（テキスト早撃ち）→
+            </Link>
             <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
               <h2 className="text-sm font-bold mb-3 text-slate-300">プレイヤー ({playerCount}人)</h2>
               <div className="flex gap-2 mb-3">

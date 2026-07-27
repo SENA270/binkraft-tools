@@ -650,6 +650,13 @@ export default function CheeOnline() {
               </div>
             </section>
 
+            <Link
+              href="/chee/solo"
+              className="block rounded-lg border border-amber-800/50 bg-stone-900 p-3 text-center text-sm font-bold text-amber-200 active:scale-[0.99] transition"
+            >
+              ひとりで練習する（1人用・早撃ち）→
+            </Link>
+
             <section className="pt-3 border-t border-stone-800 text-sm text-stone-400 leading-relaxed space-y-2">
               <h2 className="text-amber-200/90 font-bold">早撃ちチー対決の遊び方</h2>
               <p>
