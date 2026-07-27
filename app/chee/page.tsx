@@ -179,6 +179,7 @@ type Snapshot = {
   deckPos: number;
   outOrder: string[];
   phase: Phase;
+  streak: number;
 };
 
 function shuffle<T>(arr: T[]): T[] {
@@ -219,6 +220,8 @@ export default function CheeGame() {
   const [champStats, setChampStats] = useState<Record<string, number>>({});
   const [championTitle, setChampionTitle] = useState("");
   const [showDeckPreview, setShowDeckPreview] = useState(false);
+  const [streak, setStreak] = useState(0); // 連続セーフ数 (コンボ演出)
+  const [excludedShibari, setExcludedShibari] = useState<string[]>([]); // 「このお題ナシ」で除外
 
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -237,6 +240,11 @@ export default function CheeGame() {
       if (cs) {
         const parsedCs = JSON.parse(cs);
         if (parsedCs && typeof parsedCs === "object") setChampStats(parsedCs as Record<string, number>);
+      }
+      const ex = localStorage.getItem("chee-excluded");
+      if (ex) {
+        const parsedEx = JSON.parse(ex);
+        if (Array.isArray(parsedEx)) setExcludedShibari(parsedEx.filter((x) => typeof x === "string"));
       }
     } catch {
       // localStorage 不可でも続行
@@ -344,6 +352,12 @@ export default function CheeGame() {
     [soundOn]
   );
 
+  // 勝利ファンファーレ (ビープを連続で鳴らす)
+  const playFanfare = () => {
+    if (!soundOn) return;
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 180), i * 140));
+  };
+
   const alivePlayers = players.filter((p) => p.lives > 0);
   const aliveCount = alivePlayers.length;
   const currentShibari = shibariFreq === 0 ? null : deck[deckPos % deck.length];
@@ -386,11 +400,14 @@ export default function CheeGame() {
     if (deckMode === "act") pool = pool.filter((c) => c.tag === "演技");
     else if (deckMode === "easy") pool = pool.filter((c) => c.tag !== "演技");
     const customCards = customShibari.map((t) => ({ text: t, tag: "オリジナル" }));
-    const rest = shuffle([...pool, ...customCards]);
+    let combined = [...pool, ...customCards];
+    if (excludedShibari.length > 0) combined = combined.filter((c) => !excludedShibari.includes(c.text));
+    const rest = shuffle(combined);
     setDeck(free ? [free, ...rest] : rest);
     setDeckPos(0);
     setOutOrder([]);
     setHistory([]);
+    setStreak(0);
     setTimeLeft(timerSec);
     setTimedOut(false);
     setPhase("play");
@@ -407,7 +424,7 @@ export default function CheeGame() {
 
   const pushHistory = () => {
     setHistory((h) => {
-      const snap: Snapshot = { players, turnIdx, turnCount, deckPos, outOrder, phase };
+      const snap: Snapshot = { players, turnIdx, turnCount, deckPos, outOrder, phase, streak };
       const next = [...h, snap];
       return next.length > 30 ? next.slice(-30) : next;
     });
@@ -423,6 +440,7 @@ export default function CheeGame() {
     setDeckPos(last.deckPos);
     setOutOrder(last.outOrder);
     setPhase(last.phase);
+    setStreak(last.streak);
     setTimeLeft(timerSec);
     setTimedOut(false);
     beep(440, 100);
@@ -450,12 +468,14 @@ export default function CheeGame() {
 
   const handleSafe = () => {
     pushHistory();
+    setStreak((s) => s + 1);
     goNextTurn(players);
     beep(660, 100);
   };
 
   const handleOut = () => {
     pushHistory();
+    setStreak(0);
     const cur = players[turnIdx];
     const ps = players.map((p, i) => (i === turnIdx ? { ...p, lives: p.lives - 1 } : p));
     const nowDead = ps[turnIdx].lives <= 0;
@@ -467,6 +487,7 @@ export default function CheeGame() {
     if (nowDead && remain <= 1) {
       const champ = ps.find((p) => p.lives > 0);
       recordChampion((champ ?? cur).name);
+      playFanfare();
       setPhase("result");
       return;
     }
@@ -475,6 +496,24 @@ export default function CheeGame() {
 
   const rerollShibari = () => {
     setDeckPos((p) => p + 1);
+    beep(550, 80);
+  };
+
+  // 「このお題ナシ」= このお題を今後の全ゲームから除外 (市場調査: つまらないお題を消す方が効く)
+  const excludeCurrentShibari = () => {
+    if (!currentShibari) return;
+    const text = currentShibari.text;
+    setExcludedShibari((list) => {
+      if (list.includes(text)) return list;
+      const next = [...list, text];
+      try {
+        localStorage.setItem("chee-excluded", JSON.stringify(next));
+      } catch {
+        // 保存不可でも続行
+      }
+      return next;
+    });
+    setDeckPos((p) => p + 1); // 次のお題へ進む
     beep(550, 80);
   };
 
@@ -507,6 +546,10 @@ export default function CheeGame() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 flex flex-col items-center">
+      <style>{`
+        @keyframes chee-pop { 0% { transform: scale(0.9); opacity: 0.3; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes chee-fall { 0% { transform: translateY(-10%) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0.9; } }
+      `}</style>
       <div className="w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <Link href="/" className="text-xs text-slate-400 hover:text-slate-200">
@@ -791,6 +834,16 @@ export default function CheeGame() {
               </button>
             </div>
 
+            {streak >= 2 && (
+              <div
+                key={streak}
+                style={{ animation: "chee-pop 0.3s ease" }}
+                className="text-center text-sm font-black text-amber-300"
+              >
+                🔥 {streak}連続セーフ！
+              </div>
+            )}
+
             {/* 現在のプレイヤー */}
             <section className="bg-slate-900 rounded-2xl p-6 border border-slate-800 text-center">
               <p className="text-xs text-slate-400 mb-1">いまの番</p>
@@ -832,17 +885,29 @@ export default function CheeGame() {
 
             {/* しばりお題 */}
             {currentShibari && (
-              <section className="bg-gradient-to-r from-emerald-950 to-teal-950 rounded-2xl p-4 border border-emerald-800">
+              <section
+                key={deckPos}
+                style={{ animation: "chee-pop 0.35s ease" }}
+                className="bg-gradient-to-r from-emerald-950 to-teal-950 rounded-2xl p-4 border border-emerald-800"
+              >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-800 text-emerald-200">
                     しばり: {currentShibari.tag}
                   </span>
-                  <button
-                    onClick={rerollShibari}
-                    className="text-[10px] text-emerald-300 underline underline-offset-2"
-                  >
-                    別のお題にする
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={excludeCurrentShibari}
+                      className="text-[10px] text-slate-400 underline underline-offset-2"
+                    >
+                      このお題ナシ
+                    </button>
+                    <button
+                      onClick={rerollShibari}
+                      className="text-[10px] text-emerald-300 underline underline-offset-2"
+                    >
+                      別のお題にする
+                    </button>
+                  </div>
                 </div>
                 <p className="text-lg font-bold text-emerald-100">{currentShibari.text}</p>
               </section>
@@ -906,6 +971,21 @@ export default function CheeGame() {
         {/* ===== 結果 ===== */}
         {phase === "result" && (
           <div className="space-y-5 text-center">
+            <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden" aria-hidden="true">
+              {["🎉", "🀄", "✨", "🎊", "⭐", "🎉", "🀄", "✨", "🎊", "⭐", "🎉", "✨"].map((e, i) => (
+                <span
+                  key={i}
+                  className="absolute text-2xl"
+                  style={{
+                    left: `${(i * 8.3) % 100}%`,
+                    top: "-5%",
+                    animation: `chee-fall ${2.4 + (i % 4) * 0.5}s linear ${(i % 6) * 0.25}s infinite`,
+                  }}
+                >
+                  {e}
+                </span>
+              ))}
+            </div>
             <section className="bg-gradient-to-b from-emerald-950 to-slate-900 rounded-2xl p-8 border border-emerald-800">
               <p className="text-5xl mb-3">🏆</p>
               <p className="text-xs text-emerald-300 mb-1">優勝 — 本日のチーマスター</p>
