@@ -217,7 +217,7 @@ export default function CheeOnline() {
         settings: { timerSec: 30, shibariFreq: 0, livesSetting: 1 },
         turnStartedAt: 0,
         usedWords: [],
-        requiredLen: START_LEN,
+        requiredLen: 0,
         log: [],
       };
       const r = await fetch("/api/chee/room", {
@@ -299,7 +299,7 @@ export default function CheeOnline() {
         outOrder: [],
         usedWords: [],
         log: [],
-        requiredLen: START_LEN,
+        requiredLen: 0,
         turnStartedAt: Date.now(),
       };
     });
@@ -313,8 +313,8 @@ export default function CheeOnline() {
       setErr("「チー」で終わる言葉にして");
       return;
     }
-    const need = s.requiredLen ?? START_LEN;
-    if (charLen(w) !== need) {
+    const need = s.requiredLen ?? 0;
+    if (need > 0 && charLen(w) !== need) {
       setErr(`${need}文字ちょうどにして(いまは${charLen(w)}文字)`);
       return;
     }
@@ -356,7 +356,7 @@ export default function CheeOnline() {
   // ---- 派生 ----
   const isHost = room?.hostId === myId;
   const myTurn = !!room && room.phase === "play" && room.players[room.turnIdx]?.id === myId;
-  const need = room?.requiredLen ?? START_LEN;
+  const need = room?.requiredLen ?? 0; // 0 = 1手目(文字数しばりなし・自由)
   const aliveCount = room?.players.filter(aliveByTime).length ?? 0;
   const winner = room?.players.find(aliveByTime);
   const colorOf = (i: number) => COLORS[i % COLORS.length];
@@ -468,7 +468,7 @@ export default function CheeOnline() {
               <h2 className="text-amber-200/90 font-bold">早撃ちチー対決の遊び方</h2>
               <p>
                 各自<b className="text-amber-200">持ち時間30秒</b>。自分の番の間だけ時計が減り、<b className="text-red-300">0になった人の負け</b>。
-                答えた人が「次は<b className="text-amber-200">◯文字</b>」を指定→次の人はその文字数ちょうどの「◯◯チー」を返す(既出は無効)。
+                <b className="text-amber-200">1手目は自由</b>に「◯◯チー」。答えた人が「次は<b className="text-amber-200">◯文字</b>」を指定→<b className="text-amber-200">2手目から</b>はその文字数ちょうどを返す(既出は無効)。
                 考えている間も時計は減るので、早撃ちが勝ち。最後の1人が優勝。
               </p>
             </section>
@@ -520,7 +520,7 @@ export default function CheeOnline() {
                   </span>
                 ))}
               </div>
-              <p className="mt-3 text-[11px] text-stone-500">持ち時間 各30秒 ・ 最初は{START_LEN}文字から</p>
+              <p className="mt-3 text-[11px] text-stone-500">持ち時間 各30秒 ・ 1手目は自由、2手目から文字数しばり</p>
             </section>
 
             {isHost ? (
@@ -553,9 +553,13 @@ export default function CheeOnline() {
             {/* お題(必要文字数) */}
             <section className="bg-red-900/40 rounded-lg p-4 border border-red-800 text-center">
               <p className="text-xs text-red-200/80 mb-1">いまのお題</p>
-              <p className="text-2xl font-black text-amber-100">
-                <span className="text-4xl text-amber-300">{need}</span> 文字ちょうどの「◯◯チー」
-              </p>
+              {need > 0 ? (
+                <p className="text-2xl font-black text-amber-100">
+                  <span className="text-4xl text-amber-300">{need}</span> 文字ちょうどの「◯◯チー」
+                </p>
+              ) : (
+                <p className="text-2xl font-black text-amber-100">1手目は自由！「◯◯チー」なら何でも</p>
+              )}
             </section>
 
             {/* 現在の手番 + 持ち時間 */}
@@ -587,7 +591,11 @@ export default function CheeOnline() {
 
             {myTurn ? (
               <section className="bg-red-900/30 rounded-lg p-4 border border-red-800 space-y-3">
-                <p className="text-sm font-bold text-amber-100">あなたの番！{need}文字の「◯◯チー」を早く打て</p>
+                <p className="text-sm font-bold text-amber-100">
+                  {need > 0
+                    ? `あなたの番！${need}文字の「◯◯チー」を早く打て`
+                    : "あなたの番！「◯◯チー」を早く打て(1手目は自由)"}
+                </p>
                 <div className="flex gap-2">
                   <input
                     value={input}
@@ -596,7 +604,7 @@ export default function CheeOnline() {
                       if (e.key === "Enter") submit();
                     }}
                     autoFocus
-                    placeholder={`例: ${need}文字`}
+                    placeholder={need > 0 ? `${need}文字の「◯◯チー」` : "例: ライチー"}
                     maxLength={20}
                     className="flex-1 bg-stone-900 rounded-md px-3 py-2 text-base outline-none focus:ring-2 focus:ring-red-600"
                   />
