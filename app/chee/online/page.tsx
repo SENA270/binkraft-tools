@@ -4,16 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 /**
- * チーゲーム — オンライン(テキスト)モード
+ * チーゲーム — オンライン「早撃ちチー対決」
  *
- * 離れた友達とルームコードで対戦。各自が「◯◯チー」を打ち込み、
- * 「チーで終わる＋既出でない」を自動判定。時間切れ/詰まりでライフを失い、最後の1人が優勝。
- * サーバ(既存の /api/chee/room + KV)は状態(JSON)の置き場に徹し、各端末はポーリングで同期する。
+ * 離れた友達とルームコードで対戦。ルール:
+ * - 持ち時間制(チェスクロック): 各自30秒。自分の番の間だけ減り、0になった人の負け。
+ * - 文字数しばり: 答えた人が「次は◯文字」を指定。次の人はその文字数ちょうどの「◯◯チー」を返す(既出NG)。
+ * - 合う言葉を探す間も持ち時間は減り続ける = 早撃ちが有利。最後の1人が優勝。
+ * 判定は自動(チー終端+文字数一致+重複なし+簡易NG)。サーバは状態(JSON)の置き場、各端末はポーリングで同期。
  *
- * ※ 対面(声で遊ぶ演技しばり版)は /chee のまま。こちらはテキストなので演技しばりは扱わない。
+ * ※ 対面(声で遊ぶ演技しばり版)は /chee のまま。UIはラーメン屋の屋台イメージ。絵文字は使わない。
  */
 
-type RoomPlayer = { id: string; name: string; lives: number; avatar?: string };
+type RoomPlayer = { id: string; name: string; lives: number; avatar?: string; timeBankMs?: number };
 type RoomState = {
   code: string;
   hostId: string;
@@ -28,27 +30,19 @@ type RoomState = {
   settings: { timerSec: number; shibariFreq: number; livesSetting: number };
   turnStartedAt: number;
   usedWords?: string[];
+  requiredLen?: number;
   log?: { name: string; word: string; ok: boolean }[];
   version: number;
   updatedAt: number;
 };
 type NextState = Omit<RoomState, "code" | "version" | "updatedAt">;
 
-const AVATARS = ["🦊", "🐱", "🐰", "🐼", "🐸", "🐧", "🦁", "🐯", "🐨", "🐵", "🐮", "🦄", "🐙", "🐢", "🦖", "🐝"];
+const BANK_MS = 30000; // 持ち時間30秒(固定)
+const START_LEN = 4; // 最初の必要文字数
+const LEN_CHOICES = [3, 4, 5, 6, 7, 8]; // 2文字だと「チー」しか無く成立しないので3から
+// 麺屋の暖簾に映える札の色(絵文字は使わず色で識別)
+const COLORS = ["#e0503a", "#e0a133", "#5aa06a", "#4f8fc0", "#b06ac4", "#d0678f", "#5aa89f", "#c08a3a"];
 
-const TIMER_OPTIONS = [
-  { label: "20秒", value: 20 },
-  { label: "30秒", value: 30 },
-  { label: "45秒", value: 45 },
-  { label: "なし", value: 0 },
-];
-const LIVES_OPTIONS = [
-  { label: "サドンデス", value: 1 },
-  { label: "ライフ2", value: 2 },
-  { label: "ライフ3", value: 3 },
-];
-
-// 打ち込み文字の簡易NGワード除け(中高生に見えるため)。完全ではないが露骨表現を弾く。
 const NG_WORDS = ["しね", "死ね", "ころす", "殺す", "きもい", "うざい", "ぶす", "デブ"];
 
 function newId(): string {
@@ -64,44 +58,47 @@ function normalizeWord(w: string): string {
 function endsWithChee(w: string): boolean {
   return /(チー|ちー)$/.test(w.trim());
 }
+function charLen(w: string): number {
+  return [...w.trim()].length;
+}
 function hasNg(w: string): boolean {
   const n = w.replace(/\s+/g, "");
   return NG_WORDS.some((ng) => n.includes(ng));
 }
-function pickAvatar(existing: RoomPlayer[]): string {
-  const used = new Set(existing.map((p) => p.avatar));
-  return AVATARS.find((a) => !used.has(a)) || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+function aliveByTime(p: RoomPlayer): boolean {
+  return (p.timeBankMs ?? 0) > 0;
 }
 function nextAliveIdx(players: RoomPlayer[], from: number): number {
   let i = from;
   for (let n = 0; n < players.length; n++) {
     i = (i + 1) % players.length;
-    if (players[i].lives > 0) return i;
+    if (aliveByTime(players[i])) return i;
   }
   return from;
 }
-
-function advanceSafe(s: RoomState, word: string): NextState {
+function advanceSubmit(s: RoomState, word: string, nextLen: number, now: number): NextState {
+  const players = s.players.map((p, i) =>
+    i === s.turnIdx ? { ...p, timeBankMs: Math.max(0, (p.timeBankMs ?? BANK_MS) - (now - s.turnStartedAt)) } : p
+  );
   const used = [...(s.usedWords || []), normalizeWord(word)];
   const log = [...(s.log || []), { name: s.players[s.turnIdx].name, word, ok: true }].slice(-24);
   return {
     ...s,
+    players,
     usedWords: used,
     log,
-    turnIdx: nextAliveIdx(s.players, s.turnIdx),
+    requiredLen: nextLen,
+    turnIdx: nextAliveIdx(players, s.turnIdx),
     turnCount: s.turnCount + 1,
-    turnStartedAt: Date.now(),
+    turnStartedAt: now,
   };
 }
-
-function advanceOut(s: RoomState, reason: string): NextState {
+function advanceTimeout(s: RoomState, now: number): NextState {
   const cur = s.players[s.turnIdx];
-  const players = s.players.map((p, i) => (i === s.turnIdx ? { ...p, lives: p.lives - 1 } : p));
-  const nowDead = players[s.turnIdx].lives <= 0;
-  const outOrder = nowDead ? [...s.outOrder, cur.id] : s.outOrder;
-  const log = [...(s.log || []), { name: cur.name, word: reason, ok: false }].slice(-24);
-  const alive = players.filter((p) => p.lives > 0).length;
-  if (nowDead && alive <= 1) {
+  const players = s.players.map((p, i) => (i === s.turnIdx ? { ...p, timeBankMs: 0 } : p));
+  const outOrder = [...s.outOrder, cur.id];
+  const log = [...(s.log || []), { name: cur.name, word: "持ち時間切れ", ok: false }].slice(-24);
+  if (players.filter(aliveByTime).length <= 1) {
     return { ...s, players, outOrder, log, phase: "result" };
   }
   return {
@@ -111,7 +108,7 @@ function advanceOut(s: RoomState, reason: string): NextState {
     log,
     turnIdx: nextAliveIdx(players, s.turnIdx),
     turnCount: s.turnCount + 1,
-    turnStartedAt: Date.now(),
+    turnStartedAt: now,
   };
 }
 
@@ -119,10 +116,9 @@ export default function CheeOnline() {
   const [myId] = useState(newId);
   const [myName, setMyName] = useState("");
   const [codeInput, setCodeInput] = useState("");
-  const [timerSec, setTimerSec] = useState(30);
-  const [livesSetting, setLivesSetting] = useState(2);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [input, setInput] = useState("");
+  const [nextLen, setNextLen] = useState(START_LEN);
   const [err, setErr] = useState("");
   const [nowTick, setNowTick] = useState(Date.now());
   const [busy, setBusy] = useState(false);
@@ -133,7 +129,6 @@ export default function CheeOnline() {
     setRoom(s);
   }, []);
 
-  // ---- サーバ同期 ----
   const applyMutation = useCallback(
     async (fn: (s: RoomState) => NextState | null) => {
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -154,15 +149,14 @@ export default function CheeOnline() {
         if (res.status === 409) {
           const j = await res.json();
           if (j.current) setRoomBoth(j.current);
-          continue; // 最新でやり直し
+          continue;
         }
-        return; // その他エラーは諦める(次のポーリングで復帰)
+        return;
       }
     },
     [setRoomBoth]
   );
 
-  // ポーリング(ロビー・対戦・結果すべて)
   useEffect(() => {
     if (!room?.code) return;
     const id = setInterval(async () => {
@@ -179,12 +173,12 @@ export default function CheeOnline() {
     return () => clearInterval(id);
   }, [room?.code, setRoomBoth]);
 
-  // 1秒ごとの時計 + 時間切れの自動アウト(どの端末からでも試行・楽観ロックで二重防止)
   const timeoutAdvance = useCallback(() => {
     applyMutation((s) => {
-      if (s.phase !== "play" || s.settings.timerSec <= 0) return null;
-      if ((Date.now() - s.turnStartedAt) / 1000 < s.settings.timerSec + 1) return null;
-      return advanceOut(s, "時間切れ");
+      if (s.phase !== "play") return null;
+      const p = s.players[s.turnIdx];
+      if ((p.timeBankMs ?? BANK_MS) - (Date.now() - s.turnStartedAt) > 0) return null;
+      return advanceTimeout(s, Date.now());
     });
   }, [applyMutation]);
 
@@ -192,10 +186,11 @@ export default function CheeOnline() {
     const id = setInterval(() => {
       setNowTick(Date.now());
       const cur = roomRef.current;
-      if (cur && cur.phase === "play" && cur.settings.timerSec > 0) {
-        if ((Date.now() - cur.turnStartedAt) / 1000 >= cur.settings.timerSec + 1) timeoutAdvance();
+      if (cur && cur.phase === "play") {
+        const p = cur.players[cur.turnIdx];
+        if ((p.timeBankMs ?? BANK_MS) - (Date.now() - cur.turnStartedAt) <= 0) timeoutAdvance();
       }
-    }, 1000);
+    }, 250);
     return () => clearInterval(id);
   }, [timeoutAdvance]);
 
@@ -208,7 +203,7 @@ export default function CheeOnline() {
     }
     setBusy(true);
     try {
-      const me: RoomPlayer = { id: myId, name: myName.trim() || "ホスト", lives: livesSetting, avatar: AVATARS[0] };
+      const me: RoomPlayer = { id: myId, name: myName.trim() || "店主", lives: 1, timeBankMs: BANK_MS };
       const init: NextState = {
         hostId: myId,
         phase: "lobby",
@@ -219,9 +214,10 @@ export default function CheeOnline() {
         deck: [],
         deckPos: 0,
         outOrder: [],
-        settings: { timerSec, shibariFreq: 0, livesSetting },
+        settings: { timerSec: 30, shibariFreq: 0, livesSetting: 1 },
         turnStartedAt: 0,
         usedWords: [],
+        requiredLen: START_LEN,
         log: [],
       };
       const r = await fetch("/api/chee/room", {
@@ -234,7 +230,7 @@ export default function CheeOnline() {
         return;
       }
       if (!r.ok) {
-        setErr("ルーム作成に失敗しました");
+        setErr("暖簾を出せませんでした(作成失敗)");
         return;
       }
       const j = await r.json();
@@ -252,7 +248,7 @@ export default function CheeOnline() {
     }
     const code = codeInput.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     if (!code) {
-      setErr("ルームコードを入れてね");
+      setErr("暖簾の番号(コード)を入れてね");
       return;
     }
     setBusy(true);
@@ -263,30 +259,25 @@ export default function CheeOnline() {
         return;
       }
       if (r.status === 404) {
-        setErr("そのルームは見つかりません");
+        setErr("その暖簾は見つかりません");
         return;
       }
       if (!r.ok) {
-        setErr("参加に失敗しました");
+        setErr("入店に失敗しました");
         return;
       }
       const j = await r.json();
       const s: RoomState = j.state;
       if (s.phase !== "lobby") {
-        setErr("このルームはもう始まっています");
+        setErr("この店はもう営業中(開始済み)です");
         return;
       }
       if (s.players.length >= 8) {
-        setErr("満員です(最大8人)");
+        setErr("満席です(最大8人)");
         return;
       }
       setRoomBoth(s);
-      const me: RoomPlayer = {
-        id: myId,
-        name: myName.trim() || "ゲスト",
-        lives: s.settings.livesSetting,
-        avatar: pickAvatar(s.players),
-      };
+      const me: RoomPlayer = { id: myId, name: myName.trim() || "客", lives: 1, timeBankMs: BANK_MS };
       await applyMutation((cur) =>
         cur.players.some((p) => p.id === myId) ? cur : { ...cur, players: [...cur.players, me] }
       );
@@ -298,7 +289,7 @@ export default function CheeOnline() {
   const startGame = () =>
     applyMutation((s) => {
       if (s.players.length < 2) return null;
-      const players = s.players.map((p) => ({ ...p, lives: s.settings.livesSetting }));
+      const players = s.players.map((p) => ({ ...p, timeBankMs: BANK_MS }));
       return {
         ...s,
         players,
@@ -308,38 +299,40 @@ export default function CheeOnline() {
         outOrder: [],
         usedWords: [],
         log: [],
+        requiredLen: START_LEN,
         turnStartedAt: Date.now(),
       };
     });
 
   const submit = () => {
+    const s = roomRef.current;
+    if (!s || s.players[s.turnIdx]?.id !== myId) return;
     const w = input.trim();
     if (!w) return;
     if (!endsWithChee(w)) {
-      setErr("「チー」で終わる言葉にしてね");
+      setErr("「チー」で終わる言葉にして");
+      return;
+    }
+    const need = s.requiredLen ?? START_LEN;
+    if (charLen(w) !== need) {
+      setErr(`${need}文字ちょうどにして(いまは${charLen(w)}文字)`);
       return;
     }
     if (hasNg(w)) {
-      setErr("その言葉はナシで！");
+      setErr("その言葉はナシ");
       return;
     }
-    const norm = normalizeWord(w);
-    if ((roomRef.current?.usedWords || []).includes(norm)) {
+    if ((s.usedWords || []).includes(normalizeWord(w))) {
       setErr("もう出た言葉！");
       return;
     }
     setErr("");
     setInput("");
-    applyMutation((s) => advanceSafe(s, w));
+    const nl = nextLen;
+    applyMutation((cur) => advanceSubmit(cur, w, nl, Date.now()));
   };
 
-  const declareOut = () => applyMutation((s) => advanceOut(s, "詰まった"));
-
   const leave = () => setRoomBoth(null);
-  const backToLobby = () =>
-    applyMutation((s) => ({ ...s, phase: "lobby", log: [], usedWords: [] }));
-
-  // ホスト操作(モデレーション: 荒らし・AFK・不適切入力への対処)
   const dissolve = async () => {
     const cur = roomRef.current;
     if (cur) {
@@ -358,18 +351,21 @@ export default function CheeOnline() {
         : null
     );
   const skipCurrent = () =>
-    applyMutation((s) => (s.hostId === myId && s.phase === "play" ? advanceOut(s, "スキップ") : null));
+    applyMutation((s) => (s.hostId === myId && s.phase === "play" ? advanceTimeout(s, Date.now()) : null));
 
   // ---- 派生 ----
   const isHost = room?.hostId === myId;
   const myTurn = !!room && room.phase === "play" && room.players[room.turnIdx]?.id === myId;
-  const timeLeft =
-    room && room.phase === "play" && room.settings.timerSec > 0
-      ? Math.max(0, Math.ceil(room.settings.timerSec - (nowTick - room.turnStartedAt) / 1000))
-      : null;
-  const aliveCount = room?.players.filter((p) => p.lives > 0).length ?? 0;
-  const winner = room?.players.find((p) => p.lives > 0);
+  const need = room?.requiredLen ?? START_LEN;
+  const aliveCount = room?.players.filter(aliveByTime).length ?? 0;
+  const winner = room?.players.find(aliveByTime);
+  const colorOf = (i: number) => COLORS[i % COLORS.length];
+  const idxOf = (id: string) => room?.players.findIndex((p) => p.id === id) ?? 0;
   const nameById = (id: string) => room?.players.find((p) => p.id === id)?.name ?? "?";
+  const remainMs = (p: RoomPlayer, isActive: boolean) => {
+    const base = p.timeBankMs ?? BANK_MS;
+    return isActive ? Math.max(0, base - (nowTick - (room?.turnStartedAt ?? nowTick))) : Math.max(0, base);
+  };
   const ranking =
     room && winner
       ? [winner.name, ...[...room.outOrder].reverse().map(nameById)]
@@ -378,93 +374,75 @@ export default function CheeOnline() {
         : [];
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 flex flex-col items-center">
+    <main className="min-h-screen bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
+      <style>{`
+        @keyframes chee-sway { 0%,100% { transform: rotate(-0.6deg); } 50% { transform: rotate(0.6deg); } }
+      `}</style>
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/chee" className="text-xs text-slate-400 hover:text-slate-200">
+        <div className="flex items-center justify-between mb-3">
+          <Link href="/chee" className="text-xs text-stone-400 hover:text-stone-200">
             ← 対面版(声で遊ぶ)へ
           </Link>
           {room && (
-            <button onClick={leave} className="text-xs text-slate-500 underline underline-offset-2">
-              退出
+            <button onClick={leave} className="text-xs text-stone-500 underline underline-offset-2">
+              退店
             </button>
           )}
         </div>
 
-        <h1 className="text-center mb-1">
-          <span className="text-3xl font-black tracking-wide bg-gradient-to-r from-sky-400 to-emerald-300 bg-clip-text text-transparent">
-            チーゲーム オンライン
-          </span>
-        </h1>
-        <p className="text-center text-xs text-slate-400 mb-6">
-          離れた友達と、テキストで「チー」対戦 🀄
-        </p>
+        {/* 暖簾(のれん) */}
+        <div className="mb-6" style={{ animation: "chee-sway 5s ease-in-out infinite", transformOrigin: "top center" }}>
+          <div className="mx-auto rounded-b-lg bg-red-800 px-4 pt-4 pb-5 text-center border-x-2 border-b-2 border-red-950 shadow-lg shadow-black/40">
+            <p className="text-[10px] tracking-[0.5em] text-red-200/80 mb-1">麺 屋</p>
+            <h1
+              className="text-5xl font-black tracking-[0.15em] text-stone-50"
+              style={{ fontFamily: '"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif' }}
+            >
+              チー
+            </h1>
+            <p className="text-[11px] text-red-100/90 mt-1 tracking-widest">早撃ち・オンライン対決</p>
+          </div>
+          <div className="flex gap-1 justify-center">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <span key={i} className="h-3 w-9 bg-red-800 rounded-b-md border-x-2 border-b-2 border-red-950" />
+            ))}
+          </div>
+        </div>
 
         {err && (
-          <div className="mb-4 rounded-lg bg-red-950/60 border border-red-800 px-3 py-2 text-sm text-red-200">
+          <div className="mb-4 rounded-md bg-red-950/70 border border-red-800 px-3 py-2 text-sm text-red-100">
             {err}
           </div>
         )}
 
-        {/* ===== ホーム(作成/参加) ===== */}
+        {/* ===== 入口(作成/参加) ===== */}
         {!room && (
           <div className="space-y-5">
-            <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
-              <h2 className="text-sm font-bold mb-3 text-slate-300">あなたの名前</h2>
+            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700">
+              <h2 className="text-sm font-bold mb-3 text-amber-200/90">お名前</h2>
               <input
                 value={myName}
                 onChange={(e) => setMyName(e.target.value)}
                 placeholder="なまえ (任意)"
                 maxLength={12}
-                className="w-full bg-slate-800 rounded-lg px-3 py-2 text-sm placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-stone-800 rounded-md px-3 py-2 text-sm placeholder:text-stone-500 outline-none focus:ring-2 focus:ring-red-600"
               />
             </section>
 
-            <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800 space-y-4">
-              <h2 className="text-sm font-bold text-slate-300">ルームを作る (ホスト)</h2>
-              <div>
-                <p className="text-[11px] text-slate-500 mb-1">制限時間 / ターン</p>
-                <div className="flex gap-2">
-                  {TIMER_OPTIONS.map((o) => (
-                    <button
-                      key={o.value}
-                      onClick={() => setTimerSec(o.value)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
-                        timerSec === o.value ? "bg-emerald-500 text-slate-950" : "bg-slate-800 text-slate-400"
-                      }`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-500 mb-1">ライフ</p>
-                <div className="flex gap-2">
-                  {LIVES_OPTIONS.map((o) => (
-                    <button
-                      key={o.value}
-                      onClick={() => setLivesSetting(o.value)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
-                        livesSetting === o.value ? "bg-emerald-500 text-slate-950" : "bg-slate-800 text-slate-400"
-                      }`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-3">
+              <h2 className="text-sm font-bold text-amber-200/90">暖簾を出す (部屋を作る)</h2>
+              <p className="text-[11px] text-stone-400">持ち時間30秒の早撃ち勝負。作ると番号(コード)が出るので友達に渡してね。</p>
               <button
                 onClick={create}
                 disabled={busy}
-                className="w-full py-3 rounded-2xl text-sm font-black bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 active:scale-[0.98] transition disabled:opacity-50"
+                className="w-full py-3 rounded-md text-base font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition disabled:opacity-50"
               >
-                ルームを作る
+                暖簾を出す
               </button>
             </section>
 
-            <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800 space-y-3">
-              <h2 className="text-sm font-bold text-slate-300">コードで参加</h2>
+            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 space-y-3">
+              <h2 className="text-sm font-bold text-amber-200/90">暖簾をくぐる (番号で参加)</h2>
               <div className="flex gap-2">
                 <input
                   value={codeInput}
@@ -474,24 +452,24 @@ export default function CheeOnline() {
                   }}
                   placeholder="ABCD"
                   maxLength={6}
-                  className="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-lg font-black tracking-widest text-center placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="flex-1 bg-stone-800 rounded-md px-3 py-2 text-lg font-black tracking-[0.4em] text-center placeholder:text-stone-600 outline-none focus:ring-2 focus:ring-red-600"
                 />
                 <button
                   onClick={join}
                   disabled={busy}
-                  className="px-5 rounded-lg bg-emerald-500 text-slate-950 text-sm font-bold disabled:opacity-50"
+                  className="px-5 rounded-md bg-red-700 hover:bg-red-600 text-stone-50 text-sm font-bold disabled:opacity-50"
                 >
-                  参加
+                  入店
                 </button>
               </div>
             </section>
 
-            <section className="pt-4 border-t border-slate-800 text-sm text-slate-400 leading-relaxed space-y-2">
-              <h2 className="text-slate-200 font-bold">オンライン版の遊び方</h2>
+            <section className="pt-3 border-t border-stone-800 text-sm text-stone-400 leading-relaxed space-y-2">
+              <h2 className="text-amber-200/90 font-bold">早撃ちチー対決の遊び方</h2>
               <p>
-                ホストが「ルームを作る」→ 出た<b className="text-emerald-300">4文字コード</b>を友達に共有 → みんなが「コードで参加」。
-                順番に「◯◯<b className="text-emerald-300">チー</b>」を打ち込みます。「チーで終わる・前と被らない」だけが自動判定。
-                時間切れ・詰まりでライフが減り、最後の1人が優勝です。
+                各自<b className="text-amber-200">持ち時間30秒</b>。自分の番の間だけ時計が減り、<b className="text-red-300">0になった人の負け</b>。
+                答えた人が「次は<b className="text-amber-200">◯文字</b>」を指定→次の人はその文字数ちょうどの「◯◯チー」を返す(既出は無効)。
+                考えている間も時計は減るので、早撃ちが勝ち。最後の1人が優勝。
               </p>
             </section>
           </div>
@@ -500,62 +478,65 @@ export default function CheeOnline() {
         {/* ===== ロビー ===== */}
         {room && room.phase === "lobby" && (
           <div className="space-y-5">
-            <section className="bg-slate-900 rounded-2xl p-5 border border-slate-800 text-center">
-              <p className="text-xs text-slate-400 mb-1">ルームコード (友達に共有)</p>
-              <p className="text-4xl font-black tracking-[0.3em] text-emerald-300">{room.code}</p>
+            <section className="bg-amber-100 rounded-lg p-5 border-2 border-amber-800/40 text-center">
+              <p className="text-xs text-stone-600 mb-1">暖簾の番号(友達に渡す)</p>
+              <p className="text-4xl font-black tracking-[0.35em] text-red-800" style={{ fontFamily: '"Yu Mincho",serif' }}>
+                {room.code}
+              </p>
               <button
                 onClick={() => {
                   try {
                     navigator.clipboard?.writeText(room.code);
                   } catch {
-                    // コピー不可でもコード自体は見えている
+                    // コピー不可でも番号は見えている
                   }
                 }}
-                className="mt-2 text-[11px] text-slate-400 underline underline-offset-2"
+                className="mt-2 text-[11px] text-stone-500 underline underline-offset-2"
               >
-                コードをコピー
+                番号をコピー
               </button>
             </section>
 
-            <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
-              <h2 className="text-sm font-bold mb-3 text-slate-300">参加者 ({room.players.length}人)</h2>
+            <section className="bg-stone-900 rounded-lg p-4 border border-stone-700">
+              <h2 className="text-sm font-bold mb-3 text-amber-200/90">お客さん ({room.players.length}人)</h2>
               <div className="flex flex-wrap gap-2">
-                {room.players.map((p) => (
+                {room.players.map((p, i) => (
                   <span
                     key={p.id}
-                    className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-full bg-slate-800 text-slate-200"
+                    className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-stone-800 text-stone-100"
                   >
-                    {p.avatar} {p.name}
-                    {p.id === room.hostId ? " 👑" : ""}
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorOf(i) }} />
+                    {p.name}
+                    {p.id === room.hostId ? "（店主）" : ""}
                     {isHost && p.id !== room.hostId && (
                       <button
                         onClick={() => kickInLobby(p.id)}
-                        aria-label={`${p.name}を退出させる`}
-                        className="ml-1 text-[11px] text-red-300 hover:text-red-200"
+                        aria-label={`${p.name}を退店させる`}
+                        className="ml-1 text-[11px] text-red-400 hover:text-red-300"
                       >
-                        ✕
+                        ×
                       </button>
                     )}
                   </span>
                 ))}
               </div>
-              <p className="mt-3 text-[11px] text-slate-500">タイマー{room.settings.timerSec || "なし"} ・ ライフ{room.settings.livesSetting}</p>
+              <p className="mt-3 text-[11px] text-stone-500">持ち時間 各30秒 ・ 最初は{START_LEN}文字から</p>
             </section>
 
             {isHost ? (
               <button
                 onClick={startGame}
                 disabled={room.players.length < 2}
-                className="w-full py-4 rounded-2xl text-lg font-black bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 active:scale-[0.98] transition disabled:opacity-40"
+                className="w-full py-4 rounded-md text-lg font-black bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition disabled:opacity-40"
               >
-                {room.players.length < 2 ? "あと1人待ち…" : "ゲーム開始 🀄"}
+                {room.players.length < 2 ? "あと1人待ち…" : "対決スタート"}
               </button>
             ) : (
-              <p className="text-center text-sm text-slate-400 py-4">ホストの開始を待っています…</p>
+              <p className="text-center text-sm text-stone-400 py-4">店主の開始を待っています…</p>
             )}
             {isHost && (
-              <button onClick={dissolve} className="w-full text-xs text-slate-500 underline underline-offset-2">
-                部屋を解散する(データ削除)
+              <button onClick={dissolve} className="w-full text-xs text-stone-500 underline underline-offset-2">
+                暖簾をしまう(部屋を解散・データ削除)
               </button>
             )}
           </div>
@@ -564,30 +545,49 @@ export default function CheeOnline() {
         {/* ===== 対戦中 ===== */}
         {room && room.phase === "play" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>ターン {room.turnCount + 1} ・ 残り {aliveCount}人</span>
+            <div className="flex items-center justify-between text-xs text-stone-500">
+              <span>{room.turnCount + 1}手目 ・ 残り{aliveCount}人</span>
               <span>既出 {room.usedWords?.length ?? 0} 語</span>
             </div>
 
-            <section className="bg-slate-900 rounded-2xl p-6 border border-slate-800 text-center">
-              <p className="text-xs text-slate-400 mb-1">いまの番</p>
-              <p className="text-3xl font-black text-emerald-300 mb-1">
-                {room.players[room.turnIdx]?.avatar} {room.players[room.turnIdx]?.name}
-                {myTurn ? " (あなた!)" : ""}
+            {/* お題(必要文字数) */}
+            <section className="bg-red-900/40 rounded-lg p-4 border border-red-800 text-center">
+              <p className="text-xs text-red-200/80 mb-1">いまのお題</p>
+              <p className="text-2xl font-black text-amber-100">
+                <span className="text-4xl text-amber-300">{need}</span> 文字ちょうどの「◯◯チー」
               </p>
-              {room.settings.livesSetting > 1 && (
-                <p className="text-sm mb-1">{"❤️".repeat(Math.max(room.players[room.turnIdx]?.lives ?? 0, 0))}</p>
-              )}
-              {timeLeft !== null && (
-                <p className={`text-5xl font-black tabular-nums ${timeLeft <= 3 ? "text-amber-300" : "text-slate-200"}`}>
-                  {timeLeft}
-                </p>
-              )}
+            </section>
+
+            {/* 現在の手番 + 持ち時間 */}
+            <section className="bg-stone-900 rounded-lg p-5 border border-stone-700 text-center">
+              <p className="text-xs text-stone-400 mb-1">いまの番</p>
+              <p className="text-2xl font-black" style={{ color: colorOf(idxOf(room.players[room.turnIdx]?.id ?? "")) }}>
+                {room.players[room.turnIdx]?.name}
+                {myTurn ? "（あなた）" : ""}
+              </p>
+              {(() => {
+                const rem = remainMs(room.players[room.turnIdx], true);
+                const pct = Math.max(0, Math.min(100, (rem / BANK_MS) * 100));
+                return (
+                  <>
+                    <p className={`text-5xl font-black tabular-nums mt-1 ${rem <= 5000 ? "text-red-400" : "text-stone-100"}`}>
+                      {(rem / 1000).toFixed(1)}
+                      <span className="text-lg">秒</span>
+                    </p>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-stone-800">
+                      <div
+                        className={`h-full rounded-full ${rem <= 5000 ? "bg-red-500" : "bg-amber-400"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </section>
 
             {myTurn ? (
-              <section className="bg-gradient-to-r from-emerald-950 to-teal-950 rounded-2xl p-4 border border-emerald-800 space-y-3">
-                <p className="text-sm font-bold text-emerald-100">あなたの番！「◯◯チー」を打ち込もう</p>
+              <section className="bg-red-900/30 rounded-lg p-4 border border-red-800 space-y-3">
+                <p className="text-sm font-bold text-amber-100">あなたの番！{need}文字の「◯◯チー」を早く打て</p>
                 <div className="flex gap-2">
                   <input
                     value={input}
@@ -596,65 +596,80 @@ export default function CheeOnline() {
                       if (e.key === "Enter") submit();
                     }}
                     autoFocus
-                    placeholder="例: ライチー"
+                    placeholder={`例: ${need}文字`}
                     maxLength={20}
-                    className="flex-1 bg-slate-900 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="flex-1 bg-stone-900 rounded-md px-3 py-2 text-base outline-none focus:ring-2 focus:ring-red-600"
                   />
-                  <button onClick={submit} className="px-5 rounded-lg bg-emerald-500 text-slate-950 font-bold">
-                    言う！
+                  <button onClick={submit} className="px-5 rounded-md bg-red-700 hover:bg-red-600 text-stone-50 font-bold">
+                    出す
                   </button>
                 </div>
-                <button
-                  onClick={declareOut}
-                  className="w-full py-2 rounded-lg bg-red-500/80 text-white text-sm font-bold active:scale-[0.98]"
-                >
-                  詰まった…(アウト) 💀
-                </button>
+                <div>
+                  <p className="text-[11px] text-stone-400 mb-1">次の人に出す文字数</p>
+                  <div className="flex gap-1.5">
+                    {LEN_CHOICES.map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setNextLen(n)}
+                        className={`flex-1 py-1.5 rounded-md text-sm font-bold transition ${
+                          nextLen === n ? "bg-amber-400 text-stone-900" : "bg-stone-800 text-stone-400"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </section>
             ) : (
-              <p className="text-center text-sm text-slate-400 py-2">
-                {room.players[room.turnIdx]?.name} さんが入力中…
-              </p>
+              <p className="text-center text-sm text-stone-400 py-2">{room.players[room.turnIdx]?.name} さんが考え中…</p>
             )}
 
-            {/* 実況フィード */}
-            <section className="bg-slate-900 rounded-2xl p-3 border border-slate-800">
-              <div className="flex flex-col-reverse gap-1 max-h-48 overflow-y-auto">
+            {/* 実況(お品書き) */}
+            <section className="bg-stone-900 rounded-lg p-3 border border-stone-700">
+              <div className="flex flex-col-reverse gap-1 max-h-44 overflow-y-auto">
                 {(room.log || []).map((e, i) => (
-                  <p key={i} className={`text-sm ${e.ok ? "text-slate-300" : "text-red-300"}`}>
-                    <span className="text-slate-500">{e.name}:</span>{" "}
-                    {e.ok ? `「${e.word}」✓` : `${e.word} ✗`}
+                  <p key={i} className={`text-sm ${e.ok ? "text-stone-200" : "text-red-300"}`}>
+                    <span className="text-stone-500">{e.name}:</span> {e.ok ? `「${e.word}」` : e.word}
                   </p>
                 ))}
-                {(room.log || []).length === 0 && <p className="text-xs text-slate-600">まだ発言がありません</p>}
+                {(room.log || []).length === 0 && <p className="text-xs text-stone-600">まだ一杯も出ていません</p>}
               </div>
             </section>
 
-            <div className="flex flex-wrap gap-1.5 justify-center">
-              {room.players.map((p) => (
-                <span
-                  key={p.id}
-                  className={`text-[11px] px-2 py-1 rounded-full ${
-                    p.lives <= 0
-                      ? "bg-slate-900 text-slate-600 line-through"
-                      : p.id === room.players[room.turnIdx]?.id
-                        ? "bg-emerald-500 text-slate-950 font-bold"
-                        : "bg-slate-800 text-slate-300"
-                  }`}
-                >
-                  {p.avatar} {p.name}
-                  {room.settings.livesSetting > 1 && p.lives > 0 ? ` ${"❤️".repeat(p.lives)}` : ""}
-                </span>
-              ))}
+            {/* 各自の持ち時間 */}
+            <div className="space-y-1.5">
+              {room.players.map((p, i) => {
+                const active = p.id === room.players[room.turnIdx]?.id;
+                const rem = remainMs(p, active);
+                const dead = !aliveByTime(p) || rem <= 0;
+                return (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: colorOf(i) }} />
+                    <span className={`text-xs w-20 truncate ${dead ? "text-stone-600 line-through" : "text-stone-300"}`}>
+                      {p.name}
+                    </span>
+                    <div className="flex-1 h-1.5 rounded-full bg-stone-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${active ? "bg-amber-400" : "bg-stone-600"}`}
+                        style={{ width: `${Math.max(0, Math.min(100, (rem / BANK_MS) * 100))}%` }}
+                      />
+                    </div>
+                    <span className={`text-[11px] tabular-nums w-10 text-right ${dead ? "text-stone-600" : "text-stone-400"}`}>
+                      {(rem / 1000).toFixed(1)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             {isHost && (
               <div className="flex gap-4 justify-center pt-1">
-                <button onClick={skipCurrent} className="text-[11px] text-slate-400 underline underline-offset-2">
-                  現在の人をスキップ(進まない時)
+                <button onClick={skipCurrent} className="text-[11px] text-stone-400 underline underline-offset-2">
+                  現在の人を退場(進まない時)
                 </button>
-                <button onClick={dissolve} className="text-[11px] text-red-300 underline underline-offset-2">
-                  部屋を解散
+                <button onClick={dissolve} className="text-[11px] text-red-400 underline underline-offset-2">
+                  暖簾をしまう
                 </button>
               </div>
             )}
@@ -664,23 +679,25 @@ export default function CheeOnline() {
         {/* ===== 結果 ===== */}
         {room && room.phase === "result" && (
           <div className="space-y-5 text-center">
-            <section className="bg-gradient-to-b from-emerald-950 to-slate-900 rounded-2xl p-8 border border-emerald-800">
-              <p className="text-5xl mb-3">🏆</p>
-              <p className="text-xs text-emerald-300 mb-1">優勝 — 本日のチーマスター</p>
-              <p className="text-3xl font-black text-emerald-200">
-                {winner?.avatar} {winner?.name || "—"}
+            <section className="bg-amber-100 rounded-lg p-8 border-2 border-amber-800/40">
+              <p className="text-xs tracking-[0.3em] text-red-800/80 mb-2">本日の一等</p>
+              <p className="text-3xl font-black text-red-800" style={{ fontFamily: '"Yu Mincho",serif' }}>
+                {winner?.name || "—"}
               </p>
-              <p className="mt-3 text-xs text-slate-400">全 {room.turnCount + 1} ターン ・ 既出 {room.usedWords?.length ?? 0} 語</p>
+              <p className="mt-3 text-xs text-stone-600">全 {room.turnCount + 1} 手 ・ 出た言葉 {room.usedWords?.length ?? 0} 語</p>
             </section>
 
             {ranking.length > 1 && (
-              <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800 text-left">
-                <h2 className="text-xs font-bold text-slate-400 mb-2 text-center">最終順位</h2>
+              <section className="bg-stone-900 rounded-lg p-4 border border-stone-700 text-left">
+                <h2 className="text-xs font-bold text-amber-200/90 mb-2 text-center">番付</h2>
                 <ol className="space-y-1">
                   {ranking.map((name, i) => (
                     <li key={`${name}-${i}`} className="flex items-center gap-2 text-sm">
-                      <span className="w-8 text-center">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}位`}</span>
-                      <span className={i === 0 ? "font-bold text-emerald-200" : "text-slate-300"}>{name}</span>
+                      <span className="w-10 text-center text-stone-400">
+                        {i === 0 ? "一等" : i === 1 ? "二等" : i === 2 ? "三等" : `${i + 1}位`}
+                      </span>
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorOf(idxOf(room.players.find((p) => p.name === name)?.id ?? "")) }} />
+                      <span className={i === 0 ? "font-bold text-amber-100" : "text-stone-300"}>{name}</span>
                     </li>
                   ))}
                 </ol>
@@ -690,26 +707,23 @@ export default function CheeOnline() {
             {isHost ? (
               <button
                 onClick={startGame}
-                className="w-full py-3 rounded-2xl text-sm font-bold bg-emerald-500 text-slate-950 active:scale-[0.97] transition"
+                className="w-full py-3 rounded-md text-sm font-bold bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition"
               >
-                同じメンバーでもう一回
+                同じ顔ぶれでもう一戦
               </button>
             ) : (
-              <button
-                onClick={backToLobby}
-                className="w-full py-3 rounded-2xl text-sm font-bold bg-slate-800 text-slate-300 active:scale-[0.97] transition"
-              >
-                ロビーに戻る
-              </button>
+              <p className="text-sm text-stone-400">店主の再戦を待っています…</p>
             )}
-            <button onClick={leave} className="text-xs text-slate-500 underline underline-offset-2">
-              退出する
-            </button>
-            {isHost && (
-              <button onClick={dissolve} className="ml-4 text-xs text-red-300 underline underline-offset-2">
-                部屋を解散
+            <div>
+              <button onClick={leave} className="text-xs text-stone-500 underline underline-offset-2">
+                退店する
               </button>
-            )}
+              {isHost && (
+                <button onClick={dissolve} className="ml-4 text-xs text-red-400 underline underline-offset-2">
+                  暖簾をしまう
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -8,7 +8,7 @@ import { kvGet, kvSet, kvDel, kvConfigured } from "../../chousei/lib/kv";
 
 export { kvConfigured };
 
-export type RoomPlayer = { id: string; name: string; lives: number; avatar?: string };
+export type RoomPlayer = { id: string; name: string; lives: number; avatar?: string; timeBankMs?: number };
 
 export type RoomState = {
   code: string;
@@ -24,6 +24,7 @@ export type RoomState = {
   settings: { timerSec: number; shibariFreq: number; livesSetting: number };
   turnStartedAt: number; // タイマー同期用(epoch ms)。ターン開始でリセット
   usedWords?: string[]; // text mode: 既出語(重複判定・正規化済み)
+  requiredLen?: number; // text mode(早撃ち): 現手番が返すべき文字数(前の人が指定)
   log?: { name: string; word: string; ok: boolean }[]; // text mode: 実況フィード(直近のみ)
   version: number; // 楽観ロック
   updatedAt: number;
