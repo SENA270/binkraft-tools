@@ -43,6 +43,11 @@ const LEN_CHOICES = [3, 4, 5, 6, 7, 8]; // 2文字だと「チー」しか無く
 // 麺屋の暖簾に映える札の色(絵文字は使わず色で識別)
 const COLORS = ["#e0503a", "#e0a133", "#5aa06a", "#4f8fc0", "#b06ac4", "#d0678f", "#5aa89f", "#c08a3a"];
 
+// BGM: Web Audioで生成する簡単なループ(音声ファイル不要・著作権フリー)。ゆったりした和風ペンタトニック。
+const BGM_MELODY = [440, 0, 392, 440, 329.63, 0, 392, 0, 293.66, 329.63, 392, 0, 329.63, 293.66, 246.94, 0];
+const BGM_BASS = [110, 130.81, 146.83, 130.81];
+const BGM_EIGHTH = 0.3; // 8分音符の長さ(秒)
+
 const NG_WORDS = ["しね", "死ね", "ころす", "殺す", "きもい", "うざい", "ぶす", "デブ"];
 
 function newId(): string {
@@ -122,12 +127,117 @@ export default function CheeOnline() {
   const [err, setErr] = useState("");
   const [nowTick, setNowTick] = useState(Date.now());
   const [busy, setBusy] = useState(false);
+  const [bgmOn, setBgmOn] = useState(true);
   const roomRef = useRef<RoomState | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const bgmTimerRef = useRef<number | null>(null);
+  const bgmStepRef = useRef(0);
+  const bgmNextRef = useRef(0);
 
   const setRoomBoth = useCallback((s: RoomState | null) => {
     roomRef.current = s;
     setRoom(s);
   }, []);
+
+  // ---- BGM(Web Audio生成・ファイル不要・オン/オフ切替) ----
+  const ensureAudio = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioCtxRef.current = new Ctx();
+      }
+      if (audioCtxRef.current.state === "suspended") void audioCtxRef.current.resume();
+    } catch {
+      // Web Audio 非対応でも無視
+    }
+  }, []);
+
+  const bgmPlayStep = useCallback((step: number, time: number) => {
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    const mel = BGM_MELODY[step % BGM_MELODY.length];
+    if (mel > 0) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.value = mel;
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.05, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + BGM_EIGHTH * 0.9);
+      o.connect(g).connect(ctx.destination);
+      o.start(time);
+      o.stop(time + BGM_EIGHTH);
+    }
+    if (step % 4 === 0) {
+      const b = BGM_BASS[(step / 4) % BGM_BASS.length];
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = b;
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.04, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + BGM_EIGHTH * 1.8);
+      o.connect(g).connect(ctx.destination);
+      o.start(time);
+      o.stop(time + BGM_EIGHTH * 2);
+    }
+  }, []);
+
+  const startBgm = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (!ctx || bgmTimerRef.current !== null) return;
+    bgmNextRef.current = ctx.currentTime + 0.1;
+    bgmStepRef.current = 0;
+    bgmTimerRef.current = window.setInterval(() => {
+      const c = audioCtxRef.current;
+      if (!c) return;
+      while (bgmNextRef.current < c.currentTime + 0.12) {
+        bgmPlayStep(bgmStepRef.current, bgmNextRef.current);
+        bgmNextRef.current += BGM_EIGHTH;
+        bgmStepRef.current = (bgmStepRef.current + 1) % BGM_MELODY.length;
+      }
+    }, 25);
+  }, [bgmPlayStep]);
+
+  const stopBgm = useCallback(() => {
+    if (bgmTimerRef.current !== null) {
+      clearInterval(bgmTimerRef.current);
+      bgmTimerRef.current = null;
+    }
+  }, []);
+
+  const kickAudio = () => {
+    ensureAudio();
+    if (bgmOn) startBgm();
+  };
+  const toggleBgm = () => {
+    setBgmOn((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("chee-bgm", next ? "1" : "0");
+      } catch {
+        // 保存できなくても切替は有効
+      }
+      if (next) {
+        ensureAudio();
+        startBgm();
+      } else {
+        stopBgm();
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("chee-bgm") === "0") setBgmOn(false);
+    } catch {
+      // 取得不可でも既定ON
+    }
+  }, []);
+  useEffect(() => () => stopBgm(), [stopBgm]);
 
   const applyMutation = useCallback(
     async (fn: (s: RoomState) => NextState | null) => {
@@ -197,6 +307,7 @@ export default function CheeOnline() {
   // ---- アクション ----
   const create = async () => {
     setErr("");
+    kickAudio();
     if (hasNg(myName)) {
       setErr("その名前は使えません");
       return;
@@ -242,6 +353,7 @@ export default function CheeOnline() {
 
   const join = async () => {
     setErr("");
+    kickAudio();
     if (hasNg(myName)) {
       setErr("その名前は使えません");
       return;
@@ -286,8 +398,9 @@ export default function CheeOnline() {
     }
   };
 
-  const startGame = () =>
-    applyMutation((s) => {
+  const startGame = () => {
+    kickAudio();
+    return applyMutation((s) => {
       if (s.players.length < 2) return null;
       const players = s.players.map((p) => ({ ...p, timeBankMs: BANK_MS }));
       return {
@@ -303,10 +416,12 @@ export default function CheeOnline() {
         turnStartedAt: Date.now(),
       };
     });
+  };
 
   const submit = () => {
     const s = roomRef.current;
     if (!s || s.players[s.turnIdx]?.id !== myId) return;
+    kickAudio();
     const w = input.trim();
     if (!w) return;
     if (!endsWithChee(w)) {
@@ -383,11 +498,19 @@ export default function CheeOnline() {
           <Link href="/chee" className="text-xs text-stone-400 hover:text-stone-200">
             ← 対面版(声で遊ぶ)へ
           </Link>
-          {room && (
-            <button onClick={leave} className="text-xs text-stone-500 underline underline-offset-2">
-              退店
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleBgm}
+              className="text-xs px-2 py-1 rounded border border-stone-700 text-stone-300 hover:bg-stone-800"
+            >
+              {bgmOn ? "音楽 あり" : "音楽 なし"}
             </button>
-          )}
+            {room && (
+              <button onClick={leave} className="text-xs text-stone-500 underline underline-offset-2">
+                退店
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 暖簾(のれん) */}
