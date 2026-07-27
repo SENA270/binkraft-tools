@@ -113,6 +113,25 @@ const SHIBARI_DECK: { text: string; tag: string }[] = [
   { text: "ひらがな3文字ちょうどで", tag: "ルール" },
   { text: "小さい「ッ」を入れる", tag: "ルール" },
   { text: "3秒以内に即答する", tag: "ルール" },
+  // 季節・行事(追加)
+  { text: "夏っぽい言葉で", tag: "ジャンル" },
+  { text: "冬っぽい言葉で", tag: "ジャンル" },
+  { text: "お祭りっぽい言葉で", tag: "ジャンル" },
+  { text: "文化祭っぽい言葉で", tag: "ジャンル" },
+  { text: "運動会っぽい言葉で", tag: "ジャンル" },
+  { text: "お正月っぽい言葉で", tag: "ジャンル" },
+  { text: "SNSで見そうな言葉で", tag: "ジャンル" },
+  // 演技(追加2)
+  { text: "推しを語るテンションで言う", tag: "演技" },
+  { text: "面接っぽく言う", tag: "演技" },
+  { text: "校長先生の話っぽく言う", tag: "演技" },
+  { text: "ニュースキャスターっぽく言う", tag: "演技" },
+  { text: "感動して震えながら言う", tag: "演技" },
+  // ルール(追加2)
+  { text: "最後に「知らんけど」を付けて言う", tag: "ルール" },
+  { text: "全部カタカナで言う", tag: "ルール" },
+  { text: "2文字ちょうどで", tag: "ルール" },
+  { text: "「チー」を2回言う (◯◯チーチー)", tag: "ルール" },
   // フリー
   { text: "しばりなし (自由!)", tag: "フリー" },
 ];
@@ -245,6 +264,19 @@ export default function CheeGame() {
       if (ex) {
         const parsedEx = JSON.parse(ex);
         if (Array.isArray(parsedEx)) setExcludedShibari(parsedEx.filter((x) => typeof x === "string"));
+      }
+      const cfgRaw = localStorage.getItem("chee-settings");
+      if (cfgRaw) {
+        const cfg = JSON.parse(cfgRaw);
+        if (cfg && typeof cfg === "object") {
+          if (typeof cfg.playerCount === "number") setPlayerCount(cfg.playerCount);
+          if (Array.isArray(cfg.names)) setNames(cfg.names.filter((x: unknown) => typeof x === "string"));
+          if (typeof cfg.timerSec === "number") setTimerSec(cfg.timerSec);
+          if (typeof cfg.shibariFreq === "number") setShibariFreq(cfg.shibariFreq);
+          if (typeof cfg.livesSetting === "number") setLivesSetting(cfg.livesSetting);
+          if (typeof cfg.shuffleOrder === "boolean") setShuffleOrder(cfg.shuffleOrder);
+          if (typeof cfg.deckMode === "string") setDeckMode(cfg.deckMode as DeckMode);
+        }
       }
     } catch {
       // localStorage 不可でも続行
@@ -384,6 +416,15 @@ export default function CheeGame() {
   }, [phase, timeLeft, timerSec, timedOut, beep]);
 
   const startGame = () => {
+    // 次回すぐ始められるよう、設定とメンバー名を記憶
+    try {
+      localStorage.setItem(
+        "chee-settings",
+        JSON.stringify({ playerCount, names, timerSec, shibariFreq, livesSetting, shuffleOrder, deckMode })
+      );
+    } catch {
+      // 保存できなくても開始する
+    }
     let ps: Player[] = Array.from({ length: playerCount }, (_, i) => ({
       name: (names[i] || "").trim() || `プレイヤー${i + 1}`,
       lives: livesSetting,
@@ -881,6 +922,11 @@ export default function CheeGame() {
               <p className="mt-3 text-sm text-slate-400">
                 「◯◯◯<span className="text-emerald-300 font-bold">チー</span>」と言え!
               </p>
+              {aliveCount > 1 && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  次は {players[nextAliveIdx(turnIdx, players)]?.name} さん
+                </p>
+              )}
             </section>
 
             {/* しばりお題 */}
@@ -1145,7 +1191,7 @@ export default function CheeGame() {
             className="bg-slate-900 rounded-2xl p-5 max-w-sm w-full border border-slate-700 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-black mb-3 text-emerald-300">お題の例 (全74種)</h2>
+            <h2 className="text-lg font-black mb-3 text-emerald-300">お題の例 (全{SHIBARI_DECK.length}種)</h2>
             {["演技", "ジャンル", "ルール"].map((tag) => (
               <div key={tag} className="mb-4">
                 <p className="text-xs font-bold text-slate-400 mb-1.5">{tag}</p>
