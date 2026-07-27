@@ -32,6 +32,10 @@ function normalizeWord(w: string): string {
 function toKatakana(s: string): string {
   return s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
 }
+// 文字数に合わせた見本("◯◯チー")。チーは2文字なので ◯ は (n-2) 個
+function maruWord(n: number): string {
+  return "◯".repeat(Math.max(1, n - 2)) + "チー";
+}
 function hasNg(w: string): boolean {
   const n = w.replace(/\s+/g, "");
   return NG_WORDS.some((ng) => n.includes(ng));
@@ -362,7 +366,7 @@ export default function CheeSolo() {
             <section className="bg-red-900/40 rounded-lg p-4 border border-red-800 text-center">
               <p className="text-xs text-red-200/80 mb-1">お題</p>
               <p className="text-2xl font-black text-amber-100">
-                <span className="text-4xl text-amber-300">{required}</span> 文字ちょうどの「◯◯チー」
+                <span className="text-4xl text-amber-300">{required}</span> 文字ちょうどの「{maruWord(required)}」
               </p>
             </section>
 
@@ -395,7 +399,7 @@ export default function CheeSolo() {
                   if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
                 }}
                 autoFocus
-                placeholder={`${required}文字の「◯◯チー」`}
+                placeholder={`${required}文字「${maruWord(required)}」`}
                 maxLength={20}
                 className="flex-1 bg-stone-900 rounded-md px-3 py-2 text-base outline-none focus:ring-2 focus:ring-red-600 border border-stone-700"
               />

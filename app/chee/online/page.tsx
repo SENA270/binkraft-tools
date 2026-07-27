@@ -67,6 +67,10 @@ function normalizeWord(w: string): string {
 function toKatakana(s: string): string {
   return s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60));
 }
+// 文字数に合わせた見本("◯◯チー")。チーは2文字なので ◯ は (n-2) 個
+function maruWord(n: number): string {
+  return "◯".repeat(Math.max(1, n - 2)) + "チー";
+}
 function endsWithChee(w: string): boolean {
   return /(チー|ちー)$/.test(w.trim());
 }
@@ -897,7 +901,7 @@ export default function CheeOnline() {
               <p className="text-xs text-red-200/80 mb-1">いまのお題</p>
               {need > 0 ? (
                 <p className="text-2xl font-black text-amber-100">
-                  <span className="text-4xl text-amber-300">{need}</span> 文字ちょうどの「◯◯チー」
+                  <span className="text-4xl text-amber-300">{need}</span> 文字ちょうどの「{maruWord(need)}」
                 </p>
               ) : (
                 <p className="text-2xl font-black text-amber-100">
@@ -946,7 +950,7 @@ export default function CheeOnline() {
               <section className="bg-red-900/30 rounded-lg p-4 border border-red-800 space-y-3">
                 <p className="text-sm font-bold text-amber-100">
                   {need > 0
-                    ? `あなたの番！${need}文字の「◯◯チー」を打つ`
+                    ? `あなたの番！${need}文字「${maruWord(need)}」を打つ`
                     : room.turnCount === 0
                       ? "口火の一杯！自由に「◯◯チー」を打つ"
                       : "あなたの番！「◯◯チー」を打つ(自由)"}
@@ -962,7 +966,7 @@ export default function CheeOnline() {
                     setInput(toKatakana(e.currentTarget.value));
                   }}
                   autoFocus
-                  placeholder={need > 0 ? `${need}文字の「◯◯チー」` : "例: ライチー"}
+                  placeholder={need > 0 ? maruWord(need) : "例: ライチー"}
                   maxLength={20}
                   className="w-full bg-stone-900 rounded-md px-3 py-2 text-base outline-none focus:ring-2 focus:ring-red-600"
                 />
