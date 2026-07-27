@@ -141,6 +141,7 @@ export default function CheeOnline() {
   const [busy, setBusy] = useState(false);
   const [bgmOn, setBgmOn] = useState(true);
   const [myStats, setMyStats] = useState<{ wins: number; games: number } | null>(null);
+  const [showOpening, setShowOpening] = useState(false);
   const roomRef = useRef<RoomState | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const bgmTimerRef = useRef<number | null>(null);
@@ -151,6 +152,7 @@ export default function CheeOnline() {
   const statsSentRef = useRef(false);
   const autoStartRef = useRef(false);
   const composingRef = useRef(false); // IME変換中フラグ(変換中はカタカナ化しない)
+  const prevPhaseRef = useRef<string | undefined>(undefined);
 
   const setRoomBoth = useCallback((s: RoomState | null) => {
     roomRef.current = s;
@@ -288,6 +290,29 @@ export default function CheeOnline() {
     });
   }, [ensureAudio]);
 
+  // 開店の合図(店主の開始演出の効果音・鐘風)
+  const playOpening = useCallback(() => {
+    if (!bgmOnRef.current) return;
+    ensureAudio();
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    const bell = (freq: number, time: number, dur: number, peak: number) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(peak, time + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+      o.connect(g).connect(ctx.destination);
+      o.start(time);
+      o.stop(time + dur + 0.02);
+    };
+    const t = ctx.currentTime + 0.02;
+    bell(1046.5, t, 0.5, 0.12);
+    bell(1567.98, t + 0.12, 0.6, 0.1);
+  }, [ensureAudio]);
+
   useEffect(() => {
     try {
       if (localStorage.getItem("chee-bgm") === "0") setBgmOn(false);
@@ -318,6 +343,18 @@ export default function CheeOnline() {
       wonPlayedRef.current = false;
     }
   }, [room?.phase, playFanfare]);
+
+  // 対戦開始(lobby/result → play)で店主の開店演出
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = room?.phase;
+    if (room?.phase === "play" && prev !== "play") {
+      setShowOpening(true);
+      playOpening();
+      const t = setTimeout(() => setShowOpening(false), 2200);
+      return () => clearTimeout(t);
+    }
+  }, [room?.phase, playOpening]);
 
   const applyMutation = useCallback(
     async (fn: (s: RoomState) => NextState | null) => {
@@ -685,6 +722,7 @@ export default function CheeOnline() {
     <main className="min-h-screen bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
       <style>{`
         @keyframes chee-sway { 0%,100% { transform: rotate(-0.6deg); } 50% { transform: rotate(0.6deg); } }
+        @keyframes chee-pop { 0% { transform: scale(0.6); opacity: 0; } 55% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
       <div className="w-full max-w-md">
         <div className="flex items-center justify-between mb-3">
@@ -1117,6 +1155,17 @@ export default function CheeOnline() {
           </div>
         )}
       </div>
+
+      {showOpening && room?.phase === "play" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
+          <div className="text-center px-8" style={{ animation: "chee-pop 0.5s ease" }}>
+            <p className="mb-2 text-4xl font-black text-red-500" style={{ fontFamily: '"Yu Mincho",serif' }}>
+              いらっしゃい！
+            </p>
+            <p className="text-lg text-amber-100">店主「早撃ち、勝負だチー！！」</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
