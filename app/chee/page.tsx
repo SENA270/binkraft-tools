@@ -16,6 +16,11 @@ import Link from "next/link";
  * - 「1つ戻す」: 飲み会での誤タップ・判定ひっくり返しに対応
  * - 音ON/OFF: 静かな場所用 (localStorage に記憶)
  * - しばりお題 30→50種 / 順番シャッフル / 結果画面に順位表
+ *
+ * v3 (中高生の口コミ拡散に寄せた強化):
+ * - お題 50→74種 (演技USPを増量) + お題タイプ選択 (演技多め/ゆるめ)
+ * - 自分たちのお題を追加 (教室・内輪ネタ / localStorage 保存)
+ * - 結果シェア (Web Share API) / タイマーのプログレスバー / 端末バイブ
  */
 
 type Phase = "setup" | "play" | "result";
@@ -82,6 +87,32 @@ const SHIBARI_DECK: { text: string; tag: string }[] = [
   { text: "テスト前の言い訳っぽく言う", tag: "演技" },
   { text: "実況アナウンサーっぽく言う", tag: "演技" },
   { text: "ジャンプしながら言う", tag: "演技" },
+  { text: "アニメの主人公っぽく言う", tag: "演技" },
+  { text: "ナレーション風に言う", tag: "演技" },
+  { text: "ロボットっぽく言う", tag: "演技" },
+  { text: "モノマネを1つ入れて言う", tag: "演技" },
+  { text: "占い師っぽく言う", tag: "演技" },
+  { text: "通販番組っぽく紹介する", tag: "演技" },
+  { text: "ゲーム実況っぽく言う", tag: "演技" },
+  { text: "ため息まじりに言う", tag: "演技" },
+  { text: "びっくりしながら言う", tag: "演技" },
+  { text: "とにかくドヤ顔で言う", tag: "演技" },
+  { text: "言い終わりに変なポーズを足す", tag: "演技" },
+  { text: "歌うように言う", tag: "演技" },
+  // ジャンル(追加)
+  { text: "ゲームのキャラっぽく", tag: "ジャンル" },
+  { text: "アニメのタイトルっぽく", tag: "ジャンル" },
+  { text: "部活っぽい言葉で", tag: "ジャンル" },
+  { text: "文房具っぽい言葉で", tag: "ジャンル" },
+  { text: "コンビニにありそうな言葉で", tag: "ジャンル" },
+  { text: "教科名っぽく", tag: "ジャンル" },
+  { text: "YouTuberっぽい名前で", tag: "ジャンル" },
+  // ルール(追加)
+  { text: "前の人の最後の音で始める", tag: "ルール" },
+  { text: "同じ言葉を2回続けて言う", tag: "ルール" },
+  { text: "ひらがな3文字ちょうどで", tag: "ルール" },
+  { text: "小さい「ッ」を入れる", tag: "ルール" },
+  { text: "3秒以内に即答する", tag: "ルール" },
   // フリー
   { text: "しばりなし (自由!)", tag: "フリー" },
 ];
@@ -116,6 +147,15 @@ const LIVES_OPTIONS = [
   { label: "ライフ2", value: 2 },
   { label: "ライフ3", value: 3 },
 ];
+
+/** お題デッキのタイプ。演技=USP を選べるようにする */
+const DECK_MODES = [
+  { key: "all", label: "おまかせ" },
+  { key: "act", label: "演技多め" },
+  { key: "easy", label: "ゆるめ" },
+] as const;
+
+type DeckMode = (typeof DECK_MODES)[number]["key"];
 
 /** 「1つ戻す」用のスナップショット */
 type Snapshot = {
@@ -157,6 +197,10 @@ export default function CheeGame() {
   const [showRules, setShowRules] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [deckMode, setDeckMode] = useState<DeckMode>("all");
+  const [customShibari, setCustomShibari] = useState<string[]>([]);
+  const [customInput, setCustomInput] = useState("");
+  const [shareToast, setShareToast] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -164,6 +208,11 @@ export default function CheeGame() {
   useEffect(() => {
     try {
       if (localStorage.getItem("chee-sound") === "0") setSoundOn(false);
+      const raw = localStorage.getItem("chee-custom");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setCustomShibari(parsed.filter((x) => typeof x === "string"));
+      }
     } catch {
       // localStorage 不可でも続行
     }
@@ -179,6 +228,43 @@ export default function CheeGame() {
       }
       return next;
     });
+  };
+
+  const persistCustom = (list: string[]) => {
+    try {
+      localStorage.setItem("chee-custom", JSON.stringify(list));
+    } catch {
+      // 保存できなくてもゲーム自体は続行
+    }
+  };
+
+  const addCustom = () => {
+    const t = customInput.trim();
+    if (!t) return;
+    setCustomShibari((list) => {
+      if (list.includes(t) || list.length >= 20) return list;
+      const next = [...list, t];
+      persistCustom(next);
+      return next;
+    });
+    setCustomInput("");
+  };
+
+  const removeCustom = (t: string) => {
+    setCustomShibari((list) => {
+      const next = list.filter((x) => x !== t);
+      persistCustom(next);
+      return next;
+    });
+  };
+
+  // 端末バイブ (対応端末のみ・非対応でも無視)
+  const buzz = (pattern: number | number[]) => {
+    try {
+      navigator.vibrate?.(pattern);
+    } catch {
+      // 非対応端末は無視
+    }
   };
 
   // iOS 対策: ユーザー操作起点で AudioContext を確保してビープを鳴らす
@@ -224,6 +310,11 @@ export default function CheeGame() {
       if (next <= 3 && next > 0) beep(880, 90);
       if (next === 0) {
         beep(220, 600);
+        try {
+          navigator.vibrate?.(200);
+        } catch {
+          // 非対応端末は無視
+        }
         setTimedOut(true);
       }
     }, 1000);
@@ -241,8 +332,13 @@ export default function CheeGame() {
     setTurnCount(0);
     // 市場リサーチ(2026-07-20)の知見: 序盤は簡単に。1枚目は必ず「しばりなし」でルール学習させ、
     // 2枚目以降のしばり(演技系=このゲームのUSP)で盛り上げる
+    // お題タイプに応じてデッキを構成 (演技=USP を選べる) + 自分たちのお題を合流
     const free = SHIBARI_DECK.find((c) => c.tag === "フリー");
-    const rest = shuffle(SHIBARI_DECK.filter((c) => c.tag !== "フリー"));
+    let pool = SHIBARI_DECK.filter((c) => c.tag !== "フリー");
+    if (deckMode === "act") pool = pool.filter((c) => c.tag === "演技");
+    else if (deckMode === "easy") pool = pool.filter((c) => c.tag !== "演技");
+    const customCards = customShibari.map((t) => ({ text: t, tag: "オリジナル" }));
+    const rest = shuffle([...pool, ...customCards]);
     setDeck(free ? [free, ...rest] : rest);
     setDeckPos(0);
     setOutOrder([]);
@@ -319,6 +415,7 @@ export default function CheeGame() {
     setPlayers(ps);
     if (nowDead) setOutOrder((o) => [...o, cur.name]);
     beep(330, 250);
+    buzz(nowDead ? [70, 50, 120] : 60);
     if (nowDead && remain <= 1) {
       setPhase("result");
       return;
@@ -334,6 +431,29 @@ export default function CheeGame() {
   const winner = alivePlayers[0];
   // 順位: 優勝者 → 後に脱落した人ほど上位
   const ranking = winner ? [winner.name, ...[...outOrder].reverse()] : [...outOrder].reverse();
+
+  const shareText = winner
+    ? `チーゲームで優勝！本日のチーマスターは「${winner.name}」👑\n語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー`
+    : "語尾「チー」縛りの大喜利ワードバトル、スマホ1台で遊べるチー";
+
+  const shareResult = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: "チーゲーム", text: shareText, url });
+        return;
+      }
+    } catch {
+      return; // 共有シートをキャンセルした等
+    }
+    try {
+      await navigator.clipboard.writeText(url ? `${shareText}\n${url}` : shareText);
+      setShareToast(true);
+      setTimeout(() => setShareToast(false), 2000);
+    } catch {
+      // クリップボードも使えない環境は何もしない
+    }
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 flex flex-col items-center">
@@ -474,6 +594,67 @@ export default function CheeGame() {
               </div>
             </section>
 
+            <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
+              <h2 className="text-sm font-bold mb-3 text-slate-300">お題のタイプ</h2>
+              <div className="flex gap-2">
+                {DECK_MODES.map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setDeckMode(m.key)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
+                      deckMode === m.key
+                        ? "bg-emerald-500 text-slate-950"
+                        : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                「演技多め」がこのゲームの本領。恥ずかしがり屋が多いグループは「ゆるめ」で
+              </p>
+            </section>
+
+            <section className="bg-slate-900 rounded-2xl p-4 border border-slate-800">
+              <h2 className="text-sm font-bold mb-1 text-slate-300">自分たちのお題を追加</h2>
+              <p className="text-[10px] text-slate-500 mb-3">
+                教室ネタ・内輪ネタでもっと盛り上がる (この端末に保存されます)
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addCustom();
+                  }}
+                  placeholder="例: 部活の先輩っぽく言う"
+                  maxLength={30}
+                  className="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-sm placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  onClick={addCustom}
+                  className="px-4 rounded-lg bg-emerald-500 text-slate-950 text-sm font-bold active:scale-95 transition"
+                >
+                  追加
+                </button>
+              </div>
+              {customShibari.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {customShibari.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => removeCustom(t)}
+                      className="text-[11px] px-2 py-1 rounded-full bg-slate-800 text-slate-300 hover:bg-red-900/40"
+                      aria-label={`お題「${t}」を削除`}
+                    >
+                      {t} ✕
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <button
               onClick={startGame}
               className="w-full py-4 rounded-2xl text-lg font-black bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 active:scale-[0.98] transition shadow-lg shadow-emerald-500/20"
@@ -577,6 +758,16 @@ export default function CheeGame() {
                 >
                   {timedOut ? "時間切れ!" : timeLeft}
                 </p>
+              )}
+              {timerSec > 0 && (
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className={`h-full rounded-full transition-all duration-1000 ease-linear ${
+                      timedOut ? "bg-red-500" : timeLeft <= 3 ? "bg-amber-400" : "bg-emerald-400"
+                    }`}
+                    style={{ width: `${(Math.max(timeLeft, 0) / timerSec) * 100}%` }}
+                  />
+                </div>
               )}
               <p className="mt-3 text-sm text-slate-400">
                 「◯◯◯<span className="text-emerald-300 font-bold">チー</span>」と言え!
@@ -684,6 +875,13 @@ export default function CheeGame() {
               </section>
             )}
 
+            <button
+              onClick={shareResult}
+              className="w-full py-3 rounded-2xl text-sm font-black bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 active:scale-[0.98] transition"
+            >
+              🏆 結果をシェアする
+            </button>
+
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setPhase("setup")}
@@ -765,6 +963,12 @@ export default function CheeGame() {
               閉じる
             </button>
           </div>
+        </div>
+      )}
+
+      {shareToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-100 shadow-lg">
+          結果をコピーしました！貼り付けて送ってね
         </div>
       )}
     </main>
