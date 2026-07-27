@@ -303,7 +303,7 @@ export default function CheeSolo() {
   const pct = Math.max(0, Math.min(100, (timeLeft / START_BANK) * 100));
 
   return (
-    <main className="min-h-[100dvh] overscroll-none bg-stone-950 text-stone-100 px-4 py-3 flex flex-col items-center">
+    <main className="h-[100dvh] overflow-y-auto overscroll-none bg-stone-950 text-stone-100 px-4 py-3 flex flex-col items-center">
       <style>{`
         @keyframes chee-pop { 0% { transform: scale(0.6); opacity: 0; } 55% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
@@ -344,16 +344,16 @@ export default function CheeSolo() {
 
         {/* ホーム */}
         {phase === "home" && (
-          <div className="space-y-3 text-center">
+          <div className="space-y-2.5 text-center">
             <div className="flex justify-center">
-              <StoreOwner size={78} />
+              <StoreOwner size={56} />
             </div>
-            <section className="bg-stone-900 rounded-lg p-3 border border-stone-700">
+            <section className="bg-stone-900 rounded-lg p-2.5 border border-stone-700">
               <p className="text-xs text-stone-300 leading-relaxed text-left">
-                画面が「<b className="text-amber-200">◯文字</b>」を出すので、その文字数ちょうどの「◯◯<b className="text-amber-200">チー</b>」を打つだけ。正解で<b className="text-amber-200">持ち時間が増え</b>、時間切れで終了。自己ベストに挑戦。
+                お題の<b className="text-amber-200">文字数ちょうど</b>の「◯◯<b className="text-amber-200">チー</b>」を早撃ち！正解で<b className="text-amber-200">持ち時間+2秒</b>、時間切れで終了。自己ベストに挑戦。
               </p>
             </section>
-            <section className="bg-amber-100 rounded-lg p-3 border-2 border-amber-800/40">
+            <section className="bg-amber-100 rounded-lg p-2.5 border-2 border-amber-800/40">
               <p className="text-[11px] text-stone-600">自己ベスト</p>
               <p className="text-3xl font-black text-red-800" style={{ fontFamily: '"Yu Mincho",serif' }}>
                 {best} 連続

@@ -21,5 +21,11 @@ export const viewport: Viewport = {
 };
 
 export default function CheeLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      {/* ページ全体のバウンド/スクロール連鎖を無効化(チーゲーム配下のみ) */}
+      <style>{`html,body{overscroll-behavior:none;}`}</style>
+      {children}
+    </>
+  );
 }
