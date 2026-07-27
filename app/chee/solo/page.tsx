@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { StoreOwner } from "../StoreOwner";
 
 /**
  * チーゲーム — ひとり早撃ち練習(テキスト・オフライン完結)
@@ -331,6 +332,9 @@ export default function CheeSolo() {
         {/* ホーム */}
         {phase === "home" && (
           <div className="space-y-5 text-center">
+            <div className="flex justify-center">
+              <StoreOwner size={110} />
+            </div>
             <section className="bg-stone-900 rounded-lg p-5 border border-stone-700">
               <p className="text-sm text-stone-300 leading-relaxed text-left">
                 画面が「<b className="text-amber-200">◯文字</b>」を出すので、その文字数ちょうどの「◯◯<b className="text-amber-200">チー</b>」を打つだけ。

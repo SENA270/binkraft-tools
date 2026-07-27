@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { StoreOwner } from "../StoreOwner";
 
 /**
  * チーゲーム — オンライン「早撃ちチー対決」
@@ -1086,6 +1087,9 @@ export default function CheeOnline() {
         {room && room.phase === "result" && (
           <div className="space-y-5 text-center">
             <section className="bg-amber-100 rounded-lg p-8 border-2 border-amber-800/40">
+              <div className="flex justify-center mb-1">
+                <StoreOwner size={80} />
+              </div>
               <p className="text-6xl font-black text-red-700 leading-none" style={{ fontFamily: '"Yu Mincho",serif' }}>
                 チー！！
               </p>
@@ -1159,6 +1163,9 @@ export default function CheeOnline() {
       {showOpening && room?.phase === "play" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
           <div className="text-center px-8" style={{ animation: "chee-pop 0.5s ease" }}>
+            <div className="flex justify-center mb-3">
+              <StoreOwner size={132} />
+            </div>
             <p className="mb-2 text-4xl font-black text-red-500" style={{ fontFamily: '"Yu Mincho",serif' }}>
               いらっしゃい！
             </p>
