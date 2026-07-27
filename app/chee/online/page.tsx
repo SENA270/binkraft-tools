@@ -720,7 +720,7 @@ export default function CheeOnline() {
   }, [room?.random, room?.phase, room?.players.length, isHost]);
 
   return (
-    <main className="min-h-screen bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
+    <main className="min-h-[100dvh] overscroll-none bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
       <style>{`
         @keyframes chee-sway { 0%,100% { transform: rotate(-0.6deg); } 50% { transform: rotate(0.6deg); } }
         @keyframes chee-pop { 0% { transform: scale(0.6); opacity: 0; } 55% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }

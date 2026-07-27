@@ -303,7 +303,7 @@ export default function CheeSolo() {
   const pct = Math.max(0, Math.min(100, (timeLeft / START_BANK) * 100));
 
   return (
-    <main className="min-h-screen bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
+    <main className="min-h-[100dvh] overscroll-none bg-stone-950 text-stone-100 px-4 py-5 flex flex-col items-center">
       <style>{`
         @keyframes chee-pop { 0% { transform: scale(0.6); opacity: 0; } 55% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
