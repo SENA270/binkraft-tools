@@ -8,6 +8,12 @@ export const metadata: Metadata = {
 
 const articles = [
   {
+    href: "/blog/100masu-keisan",
+    title: "100マス計算の効果とやり方｜今日から無料でできる（大人の脳トレにも）",
+    description: "効果・正しいやり方・続けるコツを解説。たし・ひき・かけ・わり算を試せる無料ツールつき。",
+    emoji: "🧮",
+  },
+  {
     href: "/blog/commute-lifetime",
     title: "通勤時間は人生の何年分？生涯の通勤コストを計算してみた",
     description: "片道1時間の通勤を38年間続けると、生涯で約2万時間。あなたの通勤時間を生涯換算できます。",

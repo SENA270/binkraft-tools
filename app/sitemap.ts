@@ -90,9 +90,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE_URL}/blog`,
-      lastModified: "2026-04-16",
+      lastModified: "2026-07-28",
       changeFrequency: "weekly",
       priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/blog/100masu-keisan`,
+      lastModified: "2026-07-28",
+      changeFrequency: "monthly",
+      priority: 0.8,
     },
     {
       url: `${BASE_URL}/blog/commute-lifetime`,
