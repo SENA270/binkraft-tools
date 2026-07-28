@@ -304,6 +304,13 @@ export default function Masu() {
                 )}
               </div>
             </div>
+
+            <Link
+              href="/blog/100masu-keisan"
+              className="block text-center text-xs text-sky-600 underline underline-offset-2"
+            >
+              100マス計算のやり方・効果を読む
+            </Link>
           </div>
         )}
 
