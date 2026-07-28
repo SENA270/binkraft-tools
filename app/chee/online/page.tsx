@@ -34,6 +34,8 @@ type RoomState = {
   usedWords?: string[];
   requiredLen?: number;
   log?: { name: string; word: string; ok: boolean }[];
+  rematchVotes?: string[];
+  rematchDeclined?: boolean;
   version: number;
   updatedAt: number;
 };
@@ -142,6 +144,8 @@ export default function CheeOnline() {
   const [busy, setBusy] = useState(false);
   const [bgmOn, setBgmOn] = useState(true);
   const [myStats, setMyStats] = useState<{ wins: number; games: number } | null>(null);
+  const [board, setBoard] = useState<{ name: string; wins: number }[]>([]);
+  const [rematchFail, setRematchFail] = useState(false);
   const [showOpening, setShowOpening] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const roomRef = useRef<RoomState | null>(null);
@@ -155,6 +159,7 @@ export default function CheeOnline() {
   const autoStartRef = useRef(false);
   const composingRef = useRef(false); // IME変換中フラグ(変換中はカタカナ化しない)
   const prevPhaseRef = useRef<string | undefined>(undefined);
+  const autoRematchRef = useRef(false);
 
   const setRoomBoth = useCallback((s: RoomState | null) => {
     roomRef.current = s;
@@ -393,7 +398,8 @@ export default function CheeOnline() {
         const r = await fetch(`/api/chee/room?code=${room.code}`, { cache: "no-store" });
         if (r.ok) {
           const j = await r.json();
-          setRoomBoth(j.state);
+          // 退店直後に飛んできた遅延レスポンスで部屋が復活しないよう、まだその部屋に居る時だけ反映
+          if (roomRef.current?.code === room.code) setRoomBoth(j.state);
         }
       } catch {
         // 一時的な通信エラーは無視
@@ -580,7 +586,8 @@ export default function CheeOnline() {
   const startGame = () => {
     kickAudio();
     return applyMutation((s) => {
-      if (s.phase !== "lobby" || s.players.length < 2) return null;
+      // lobby(開始) と result(再戦) から開始可。play中の二重開始だけ禁止
+      if (s.phase === "play" || s.players.length < 2) return null;
       const players = s.players.map((p) => ({ ...p, timeBankMs: BANK_MS }));
       return {
         ...s,
@@ -593,6 +600,8 @@ export default function CheeOnline() {
         log: [],
         requiredLen: 0,
         turnStartedAt: Date.now(),
+        rematchVotes: [],
+        rematchDeclined: false,
       };
     });
   };
@@ -644,6 +653,18 @@ export default function CheeOnline() {
     }
     leave();
   };
+  // ランダム対戦の再戦: 「もう一回」に同意（両者そろえば自動で再開）
+  const voteRematch = () =>
+    applyMutation((s) => {
+      if (s.phase !== "result") return null;
+      const votes = s.rematchVotes ?? [];
+      if (votes.includes(myId)) return null;
+      return { ...s, rematchVotes: [...votes, myId] };
+    });
+  // ランダム対戦の再戦: 「やめる」→ 相手にも「できませんでした」を伝える
+  const declineRematch = () =>
+    applyMutation((s) => (s.phase === "result" ? { ...s, rematchDeclined: true } : null));
+
   const kickInLobby = (id: string) =>
     applyMutation((s) =>
       s.hostId === myId && s.phase === "lobby" && id !== s.hostId
@@ -672,7 +693,21 @@ export default function CheeOnline() {
       : room
         ? [...room.outOrder].reverse().map(nameById)
         : [];
-  const historyRanking = room ? [...room.players].sort((a, b) => (b.wins ?? 0) - (a.wins ?? 0)) : [];
+  // 通算勝利の全体ランキング(部屋を跨いだ全端末)を取得
+  const loadBoard = useCallback(() => {
+    fetch(`/api/chee/user?board=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (Array.isArray(j?.board)) setBoard(j.board);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ホームでは全体ランキングを表示するため取得
+  useEffect(() => {
+    if (room?.code) return;
+    loadBoard();
+  }, [room?.code, loadBoard]);
 
   // ホームで通算戦績(匿名・端末ID)を取得
   useEffect(() => {
@@ -701,7 +736,11 @@ export default function CheeOnline() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ uid: myId, name: meName, won }),
-          }).catch(() => {});
+          })
+            .then(() => loadBoard()) // 勝敗反映後の最新ランキングを結果画面に出す
+            .catch(() => {});
+        } else {
+          loadBoard();
         }
       }
     } else {
@@ -724,6 +763,33 @@ export default function CheeOnline() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.random, room?.phase, room?.players.length, isHost]);
+
+  // ランダム再戦: 両者が「もう一回」に同意したら自動で再開(どの端末からでも・楽観ロックで二重開始しない)
+  useEffect(() => {
+    if (room?.random && room.phase === "result" && !room.rematchDeclined) {
+      const votes = room.rematchVotes ?? [];
+      const allVoted = room.players.length >= 2 && room.players.every((p) => votes.includes(p.id));
+      if (allVoted && !autoRematchRef.current) {
+        autoRematchRef.current = true;
+        startGame();
+      }
+    }
+    if (room?.phase !== "result") {
+      autoRematchRef.current = false;
+      setRematchFail(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.random, room?.phase, room?.rematchVotes, room?.rematchDeclined, room?.players.length]);
+
+  // ランダム再戦: 相手が「やめる」を選んだら「できませんでした」を見せてホームへ戻す
+  useEffect(() => {
+    if (room?.random && room.phase === "result" && room.rematchDeclined) {
+      setRematchFail(true);
+      const t = setTimeout(() => leave(), 2500);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.random, room?.phase, room?.rematchDeclined]);
 
   return (
     <main className="h-[100dvh] overflow-y-auto overscroll-none bg-stone-950 text-stone-100 px-4 py-3 flex flex-col items-center">
@@ -846,6 +912,23 @@ export default function CheeOnline() {
             >
               遊び方をみる
             </button>
+
+            {board.length > 0 && (
+              <section className="bg-stone-900 rounded-lg p-4 border border-amber-800/40 text-left">
+                <h2 className="text-xs font-bold text-amber-200/90 mb-2 text-center">通算勝利ランキング</h2>
+                <ol className="space-y-1">
+                  {board.map((e, i) => (
+                    <li key={`${e.name}-${i}`} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        <span className="w-8 text-center text-stone-400">{i === 0 ? "一等" : `${i + 1}位`}</span>
+                        <span className={i === 0 ? "font-bold text-amber-100" : "text-stone-300"}>{e.name || "名無し"}</span>
+                      </span>
+                      <span className="text-xs tabular-nums text-stone-400">{e.wins}勝</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
           </div>
         )}
 
@@ -1092,18 +1175,17 @@ export default function CheeOnline() {
               <p className="mt-3 text-xs text-stone-600">全 {room.turnCount + 1} 手 ・ 出た言葉 {room.usedWords?.length ?? 0} 語</p>
             </section>
 
-            {room.players.some((p) => (p.wins ?? 0) > 0) && (
+            {board.length > 0 && (
               <section className="bg-stone-900 rounded-lg p-4 border border-amber-800/40 text-left">
-                <h2 className="text-xs font-bold text-amber-200/90 mb-2 text-center">歴代ランキング（この店の通算勝利）</h2>
+                <h2 className="text-xs font-bold text-amber-200/90 mb-2 text-center">通算勝利ランキング</h2>
                 <ol className="space-y-1">
-                  {historyRanking.map((p, i) => (
-                    <li key={p.id} className="flex items-center justify-between text-sm">
+                  {board.map((e, i) => (
+                    <li key={`${e.name}-${i}`} className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-2">
                         <span className="w-8 text-center text-stone-400">{i === 0 ? "一等" : `${i + 1}位`}</span>
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorOf(idxOf(p.id)) }} />
-                        <span className={i === 0 ? "font-bold text-amber-100" : "text-stone-300"}>{p.name}</span>
+                        <span className={i === 0 ? "font-bold text-amber-100" : "text-stone-300"}>{e.name || "名無し"}</span>
                       </span>
-                      <span className="text-xs text-stone-400">{p.wins ?? 0}勝</span>
+                      <span className="text-xs tabular-nums text-stone-400">{e.wins}勝</span>
                     </li>
                   ))}
                 </ol>
@@ -1127,7 +1209,28 @@ export default function CheeOnline() {
               </section>
             )}
 
-            {isHost ? (
+            {room.random ? (
+              rematchFail || room.rematchDeclined ? (
+                <p className="text-sm text-stone-400">またの お越しを…（相手が退店しました。ホームに戻ります）</p>
+              ) : (room.rematchVotes ?? []).includes(myId) ? (
+                <p className="text-sm text-amber-200/90">相手を待っています…</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={voteRematch}
+                    className="py-3 rounded-md text-sm font-bold bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition"
+                  >
+                    もう一回
+                  </button>
+                  <button
+                    onClick={declineRematch}
+                    className="py-3 rounded-md text-sm font-bold bg-stone-800 hover:bg-stone-700 text-stone-200 active:scale-[0.98] transition border border-stone-700"
+                  >
+                    やめる
+                  </button>
+                </div>
+              )
+            ) : isHost ? (
               <button
                 onClick={startGame}
                 className="w-full py-3 rounded-md text-sm font-bold bg-red-700 hover:bg-red-600 text-stone-50 active:scale-[0.98] transition"

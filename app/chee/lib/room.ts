@@ -27,6 +27,8 @@ export type RoomState = {
   usedWords?: string[]; // text mode: 既出語(重複判定・正規化済み)
   requiredLen?: number; // text mode(早撃ち): 現手番が返すべき文字数(前の人が指定)
   log?: { name: string; word: string; ok: boolean }[]; // text mode: 実況フィード(直近のみ)
+  rematchVotes?: string[]; // ランダム再戦: 「もう一回」に同意した player.id
+  rematchDeclined?: boolean; // ランダム再戦: 誰かが抜けた/拒否した
   version: number; // 楽観ロック
   updatedAt: number;
 };
