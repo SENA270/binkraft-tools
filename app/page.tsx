@@ -4,9 +4,16 @@ const tools = [
   {
     href: "/chee",
     title: "チーゲーム",
-    description: "「チー」で終わる言葉を交互に言うだけ。しばりお題で大喜利化する無料パーティゲーム",
+    description: "語尾「チー」の早撃ちワードバトル。オンライン対戦・ひとり練習・対面で。無料・登録不要",
     emoji: "",
     color: "from-emerald-500 to-teal-500",
+  },
+  {
+    href: "/masu",
+    title: "100マス計算",
+    description: "たし算・ひき算・かけ算・わり算を暗算タイムアタック。自己ベスト＆ランキングつき。無料・登録不要",
+    emoji: "",
+    color: "from-sky-400 to-blue-500",
   },
   {
     href: "/chousei",

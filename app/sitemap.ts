@@ -12,7 +12,25 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE_URL}/chee`,
-      lastModified: "2026-07-20",
+      lastModified: "2026-07-28",
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}/chee/online`,
+      lastModified: "2026-07-28",
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/chee/solo`,
+      lastModified: "2026-07-28",
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/masu`,
+      lastModified: "2026-07-28",
       changeFrequency: "monthly",
       priority: 0.9,
     },
