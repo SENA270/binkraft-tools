@@ -13,9 +13,56 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      headline: "100マス計算の効果とやり方｜今日から無料でできる（大人の脳トレにも）",
+      description:
+        "100マス計算の効果と正しいやり方、続けるコツを解説。たし算・ひき算・かけ算・わり算を暗算でタイムアタックできる無料ツールつき。",
+      datePublished: "2026-07-28",
+      dateModified: "2026-07-28",
+      author: { "@type": "Organization", name: "ビンクラフトツール" },
+      publisher: { "@type": "Organization", name: "ビンクラフトツール" },
+      mainEntityOfPage: "https://binkraft-tools.vercel.app/blog/100masu-keisan",
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "100マス計算はいつまで続ければいい？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "タイムが伸び止まるまでが目安です。基礎が固まったら、文章題など次の段階に進むのがおすすめです。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "大人でも効果はある？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "集中力の切り替えや脳トレとして活用できます。無理のない範囲で、毎日の習慣にするのが続けるコツです。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "何算からやればいい？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "まずはたし算から。慣れてきたらひき算・かけ算・わり算へ広げていきましょう。",
+          },
+        },
+      ],
+    },
+  ],
+};
+
 export default function MasuBlogPage() {
   return (
     <main className="flex-1 bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <article className="mx-auto max-w-2xl px-4 py-10">
         <nav className="text-sm text-zinc-400">
           <Link href="/" className="hover:underline">
