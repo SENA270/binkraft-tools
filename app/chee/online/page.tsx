@@ -626,7 +626,10 @@ export default function CheeOnline() {
     }
     setErr("");
     setInput("");
-    applyMutation((cur) => advanceSubmit(cur, w, nl, Date.now()));
+    // 再試行時に自分の番でなくなっていたら送信を破棄(時間切れと同時押しの誤適用防止)
+    applyMutation((cur) =>
+      cur.phase === "play" && cur.players[cur.turnIdx]?.id === myId ? advanceSubmit(cur, w, nl, Date.now()) : null
+    );
   };
 
   const leave = () => setRoomBoth(null);
