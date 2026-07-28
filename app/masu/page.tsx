@@ -13,8 +13,12 @@ import { MathOnii } from "./MathOnii";
  * やさしい数学のお兄さん・水色ベース。スクロールなし。
  */
 
-type Mode = "add" | "mul";
+type Mode = "add" | "sub" | "mul";
 type Entry = { name: string; ms: number; at: number };
+
+function modeLabel(m: Mode): string {
+  return m === "add" ? "たし算" : m === "sub" ? "ひき算" : "かけ算";
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -111,11 +115,16 @@ export default function Masu() {
   const c = idx % 10;
   const a = left[r] ?? 0;
   const b = top[c] ?? 0;
-  const curAns = mode === "mul" ? a * b : a + b;
+  const curAns = mode === "mul" ? a * b : mode === "sub" ? a - b : a + b;
 
   const startGame = () => {
     setTop(shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
-    setLeft(shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
+    // ひき算は「大きい数−小さい数」で負にならないよう、左列を10〜19にする(答え1〜19)
+    setLeft(
+      mode === "sub"
+        ? shuffle([10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
+        : shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    );
     setIdx(0);
     idxRef.current = 0;
     setInput("");
@@ -174,7 +183,7 @@ export default function Masu() {
     const i = idxRef.current;
     const aa = left[Math.floor(i / 10)] ?? 0;
     const bb = top[i % 10] ?? 0;
-    const ans = mode === "mul" ? aa * bb : aa + bb;
+    const ans = mode === "mul" ? aa * bb : mode === "sub" ? aa - bb : aa + bb;
     const next = (inputRef.current + d).slice(0, 2);
     if (Number(next) === ans) {
       if (i >= 99) {
@@ -203,7 +212,7 @@ export default function Masu() {
 
   const elapsed = phase === "play" ? now - startRef.current : finalMs;
   const isNewBest = phase === "done" && best != null && finalMs <= best;
-  const opSym = mode === "mul" ? "×" : "+";
+  const opSym = mode === "mul" ? "×" : mode === "sub" ? "−" : "+";
 
   return (
     <main className="h-[100dvh] overflow-y-auto overscroll-none bg-sky-50 text-slate-800 px-4 py-3 flex flex-col items-center">
@@ -240,7 +249,7 @@ export default function Masu() {
             />
 
             <div className="flex gap-2">
-              {(["add", "mul"] as Mode[]).map((m) => (
+              {(["add", "sub", "mul"] as Mode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMode(m)}
@@ -248,7 +257,7 @@ export default function Masu() {
                     mode === m ? "bg-sky-500 text-white" : "bg-sky-100 text-sky-700"
                   }`}
                 >
-                  {m === "add" ? "たしざん (＋)" : "かけざん (×)"}
+                  {modeLabel(m)}
                 </button>
               ))}
             </div>
@@ -367,13 +376,13 @@ export default function Masu() {
               <p className="mt-2 text-4xl font-black tabular-nums text-sky-700">{fmt(finalMs)}</p>
               {resultNote && <p className="mt-1 text-sm font-bold text-sky-600">{resultNote}</p>}
               <p className="mt-1 text-xs text-slate-500">
-                {mode === "add" ? "たしざん" : "かけざん"}100マス ・ 自己ベスト {best != null ? fmt(best) : "—"}
+                {modeLabel(mode)}100マス ・ 自己ベスト {best != null ? fmt(best) : "—"}
               </p>
             </div>
 
             {board.length > 0 && (
               <div className="rounded-2xl bg-white border border-sky-200 p-4 text-left">
-                <p className="text-xs font-bold text-sky-700 mb-2 text-center">ランキング（{mode === "add" ? "たしざん" : "かけざん"}）</p>
+                <p className="text-xs font-bold text-sky-700 mb-2 text-center">ランキング（{modeLabel(mode)}）</p>
                 <ol className="space-y-1">
                   {board.slice(0, 5).map((e, i) => (
                     <li key={i} className="flex items-center justify-between text-sm">

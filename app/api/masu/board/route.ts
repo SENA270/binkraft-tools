@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 
 const YEAR2 = 60 * 60 * 24 * 730;
 type Entry = { name: string; ms: number; at: number };
-const key = (mode: string) => `masu:board:${mode === "mul" ? "mul" : "add"}`;
+function normMode(m: string | undefined): "add" | "sub" | "mul" {
+  return m === "mul" ? "mul" : m === "sub" ? "sub" : "add";
+}
+const key = (mode: string) => `masu:board:${normMode(mode)}`;
 
 function parse(raw: string | null): Entry[] {
   if (!raw) return [];
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "bad_json" }, { status: 400 });
   }
-  const mode = body.mode === "mul" ? "mul" : "add";
+  const mode = normMode(body.mode);
   const name = String(body.name || "ゲスト").slice(0, 12);
   const ms = Number(body.ms);
   if (!ms || ms <= 0 || ms > 3_600_000) return NextResponse.json({ error: "bad_ms" }, { status: 400 });
