@@ -65,6 +65,8 @@ export default function Masu() {
     try {
       const n = localStorage.getItem("chee-name");
       if (n) setName(n);
+      const m = localStorage.getItem("masu-mode");
+      if (m === "add" || m === "sub" || m === "mul" || m === "div") setMode(m);
     } catch {
       // 取得不可でも続行
     }
@@ -255,7 +257,14 @@ export default function Masu() {
               {(["add", "sub", "mul", "div"] as Mode[]).map((m) => (
                 <button
                   key={m}
-                  onClick={() => setMode(m)}
+                  onClick={() => {
+                    setMode(m);
+                    try {
+                      localStorage.setItem("masu-mode", m);
+                    } catch {
+                      // 保存不可でも切替は有効
+                    }
+                  }}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition ${
                     mode === m ? "bg-sky-500 text-white" : "bg-sky-100 text-sky-700"
                   }`}
