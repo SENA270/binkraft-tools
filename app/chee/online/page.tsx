@@ -580,7 +580,7 @@ export default function CheeOnline() {
   const startGame = () => {
     kickAudio();
     return applyMutation((s) => {
-      if (s.players.length < 2) return null;
+      if (s.phase !== "lobby" || s.players.length < 2) return null;
       const players = s.players.map((p) => ({ ...p, timeBankMs: BANK_MS }));
       return {
         ...s,
@@ -709,7 +709,9 @@ export default function CheeOnline() {
 
   // ランダムルームは2人揃ったらホストが自動開始
   useEffect(() => {
-    if (room?.random && room.phase === "lobby" && isHost && room.players.length >= 2) {
+    // ランダムは「2人揃えば自動開始」。ホスト離脱でも詰まないよう、どの端末からでも発火
+    // (startGameはロビー限定＋楽観ロックなので二重開始しない)
+    if (room?.random && room.phase === "lobby" && room.players.length >= 2) {
       if (!autoStartRef.current) {
         autoStartRef.current = true;
         startGame();

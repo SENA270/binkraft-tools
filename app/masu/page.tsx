@@ -51,8 +51,11 @@ export default function Masu() {
   const [best, setBest] = useState<number | null>(null);
   const [board, setBoard] = useState<Entry[]>([]);
   const [finalMs, setFinalMs] = useState(0);
+  const [resultNote, setResultNote] = useState("");
   const startRef = useRef(0);
   const timerRef = useRef<number | null>(null);
+  const inputRef = useRef(""); // 連打でも取りこぼさないよう最新入力をrefで保持
+  const idxRef = useRef(0);
 
   useEffect(() => {
     try {
@@ -92,6 +95,18 @@ export default function Masu() {
     };
   }, []);
 
+  // PC等の物理キーボードでも遊べるように(0-9で入力・Backspaceで消す)
+  useEffect(() => {
+    if (phase !== "play") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key >= "0" && e.key <= "9") pressDigit(e.key);
+      else if (e.key === "Backspace") backspace();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, mode, top, left]);
+
   const r = Math.floor(idx / 10);
   const c = idx % 10;
   const a = left[r] ?? 0;
@@ -102,7 +117,9 @@ export default function Masu() {
     setTop(shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
     setLeft(shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
     setIdx(0);
+    idxRef.current = 0;
     setInput("");
+    inputRef.current = "";
     setWrong(false);
     startRef.current = Date.now();
     setNow(Date.now());
@@ -123,6 +140,11 @@ export default function Masu() {
       timerRef.current = null;
     }
     setFinalMs(ms);
+    const oldBest = best;
+    if (oldBest == null) setResultNote("はじめての記録！");
+    else if (ms < oldBest) setResultNote(`自己ベスト更新！ ${fmt(oldBest - ms)}速い`);
+    else if (ms === oldBest) setResultNote("自己ベストタイ！");
+    else setResultNote(`自己ベストまで あと ${fmt(ms - oldBest)}`);
     setPhase("done");
     setBest((prev) => {
       const nb = prev == null ? ms : Math.min(prev, ms);
@@ -148,24 +170,36 @@ export default function Masu() {
 
   const pressDigit = (d: string) => {
     if (phase !== "play") return;
-    const next = (input + d).slice(0, 2);
-    if (Number(next) === curAns) {
-      if (idx >= 99) {
+    // 連打対策: idx/input は state ではなく ref を真値にして計算(再描画待ちで取りこぼさない)
+    const i = idxRef.current;
+    const aa = left[Math.floor(i / 10)] ?? 0;
+    const bb = top[i % 10] ?? 0;
+    const ans = mode === "mul" ? aa * bb : aa + bb;
+    const next = (inputRef.current + d).slice(0, 2);
+    if (Number(next) === ans) {
+      if (i >= 99) {
         finish(Date.now() - startRef.current);
         return;
       }
-      setIdx((i) => i + 1);
+      idxRef.current = i + 1;
+      inputRef.current = "";
+      setIdx(i + 1);
       setInput("");
       setWrong(false);
-    } else if (next.length >= String(curAns).length) {
+    } else if (next.length >= String(ans).length) {
+      inputRef.current = "";
       setWrong(true);
       setInput("");
       setTimeout(() => setWrong(false), 250);
     } else {
+      inputRef.current = next;
       setInput(next);
     }
   };
-  const backspace = () => setInput((i) => i.slice(0, -1));
+  const backspace = () => {
+    inputRef.current = inputRef.current.slice(0, -1);
+    setInput(inputRef.current);
+  };
 
   const elapsed = phase === "play" ? now - startRef.current : finalMs;
   const isNewBest = phase === "done" && best != null && finalMs <= best;
@@ -305,7 +339,13 @@ export default function Masu() {
                 0
               </button>
               <button
-                onClick={() => setPhase("home")}
+                onClick={() => {
+                  if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                  }
+                  setPhase("home");
+                }}
                 className="py-4 rounded-lg text-xs font-bold bg-sky-100 text-sky-600 active:bg-sky-200 transition"
               >
                 やめる
@@ -325,6 +365,7 @@ export default function Masu() {
                 {isNewBest ? "お兄さん「自己ベスト更新、すごい！」" : "お兄さん「よくがんばったね！」"}
               </p>
               <p className="mt-2 text-4xl font-black tabular-nums text-sky-700">{fmt(finalMs)}</p>
+              {resultNote && <p className="mt-1 text-sm font-bold text-sky-600">{resultNote}</p>}
               <p className="mt-1 text-xs text-slate-500">
                 {mode === "add" ? "たしざん" : "かけざん"}100マス ・ 自己ベスト {best != null ? fmt(best) : "—"}
               </p>
