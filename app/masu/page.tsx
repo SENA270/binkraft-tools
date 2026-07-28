@@ -13,11 +13,11 @@ import { MathOnii } from "./MathOnii";
  * やさしい数学のお兄さん・水色ベース。スクロールなし。
  */
 
-type Mode = "add" | "sub" | "mul";
+type Mode = "add" | "sub" | "mul" | "div";
 type Entry = { name: string; ms: number; at: number };
 
 function modeLabel(m: Mode): string {
-  return m === "add" ? "たし算" : m === "sub" ? "ひき算" : "かけ算";
+  return m === "add" ? "たし算" : m === "sub" ? "ひき算" : m === "mul" ? "かけ算" : "わり算";
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -115,7 +115,8 @@ export default function Masu() {
   const c = idx % 10;
   const a = left[r] ?? 0;
   const b = top[c] ?? 0;
-  const curAns = mode === "mul" ? a * b : mode === "sub" ? a - b : a + b;
+  // div: a=割る数(1〜10), b=商(0〜9), 表示は(a*b)÷a、答えは b
+  const curAns = mode === "mul" ? a * b : mode === "sub" ? a - b : mode === "div" ? b : a + b;
 
   const startGame = () => {
     setTop(shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]));
@@ -123,7 +124,9 @@ export default function Masu() {
     setLeft(
       mode === "sub"
         ? shuffle([10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
-        : shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        : mode === "div"
+          ? shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) // わり算: 割る数(0を除外して割り切れるように)
+          : shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     );
     setIdx(0);
     idxRef.current = 0;
@@ -183,7 +186,7 @@ export default function Masu() {
     const i = idxRef.current;
     const aa = left[Math.floor(i / 10)] ?? 0;
     const bb = top[i % 10] ?? 0;
-    const ans = mode === "mul" ? aa * bb : mode === "sub" ? aa - bb : aa + bb;
+    const ans = mode === "mul" ? aa * bb : mode === "sub" ? aa - bb : mode === "div" ? bb : aa + bb;
     const next = (inputRef.current + d).slice(0, 2);
     if (Number(next) === ans) {
       if (i >= 99) {
@@ -249,11 +252,11 @@ export default function Masu() {
             />
 
             <div className="flex gap-2">
-              {(["add", "sub", "mul"] as Mode[]).map((m) => (
+              {(["add", "sub", "mul", "div"] as Mode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMode(m)}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition ${
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition ${
                     mode === m ? "bg-sky-500 text-white" : "bg-sky-100 text-sky-700"
                   }`}
                 >
@@ -317,7 +320,15 @@ export default function Masu() {
               }`}
             >
               <p className="text-5xl font-black tabular-nums text-slate-800">
-                {a} <span className="text-sky-500">{opSym}</span> {b}
+                {mode === "div" ? (
+                  <>
+                    {a * b} <span className="text-sky-500">÷</span> {a}
+                  </>
+                ) : (
+                  <>
+                    {a} <span className="text-sky-500">{opSym}</span> {b}
+                  </>
+                )}
               </p>
               <p className="mt-2 text-4xl font-black tabular-nums text-sky-700 h-11">
                 {input || <span className="text-sky-200">?</span>}

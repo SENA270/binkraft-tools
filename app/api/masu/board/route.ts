@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 
 const YEAR2 = 60 * 60 * 24 * 730;
 type Entry = { name: string; ms: number; at: number };
-function normMode(m: string | undefined): "add" | "sub" | "mul" {
-  return m === "mul" ? "mul" : m === "sub" ? "sub" : "add";
+function normMode(m: string | undefined): "add" | "sub" | "mul" | "div" {
+  return m === "mul" ? "mul" : m === "sub" ? "sub" : m === "div" ? "div" : "add";
 }
 const key = (mode: string) => `masu:board:${normMode(mode)}`;
 
