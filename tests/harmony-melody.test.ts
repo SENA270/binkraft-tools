@@ -5,6 +5,7 @@ import {
   medianFilter,
   framesToNotes,
   trackPitches,
+  trackPitchesAsync,
 } from "../app/harmony/lib/melody";
 import { renderHarmony, renderLengthSec, mixTracks } from "../app/harmony/lib/synth";
 import { encodeWav } from "../app/harmony/lib/wav";
@@ -111,6 +112,75 @@ describe("trackPitches", () => {
   it("無音だけなら音符ゼロ", () => {
     const { midiFrames, hopSec } = trackPitches(new Float32Array(16000), 16000);
     expect(framesToNotes(midiFrames, hopSec)).toEqual([]);
+  });
+});
+
+describe("trackPitchesAsync", () => {
+  const sr = 16000;
+
+  function twoNotes(): Float32Array {
+    const len = Math.floor(sr * 0.8);
+    const out = new Float32Array(len);
+    const half = Math.floor(len / 2);
+    for (let i = 0; i < len; i++) {
+      const hz = i < half ? 220 : 261.6256;
+      out[i] = 0.4 * Math.sin((2 * Math.PI * hz * i) / sr);
+    }
+    return out;
+  }
+
+  // 実装が2本に枝分かれして片方だけ直る、を防ぐための固定
+  it("同期版と結果が完全に一致する", async () => {
+    const samples = twoNotes();
+    const sync = trackPitches(samples, sr);
+    const async_ = await trackPitchesAsync(samples, sr);
+    expect(async_.hopSec).toBe(sync.hopSec);
+    expect(async_.midiFrames).toEqual(sync.midiFrames);
+  });
+
+  it("オプションを渡しても一致する", async () => {
+    const samples = twoNotes();
+    const opts = { frameSize: 2048, hopSize: 512, medianWindow: 3 };
+    const sync = trackPitches(samples, sr, opts);
+    const async_ = await trackPitchesAsync(samples, sr, opts);
+    expect(async_.midiFrames).toEqual(sync.midiFrames);
+  });
+
+  it("進み具合が 0→1 で増えていき、最後は必ず1になる", async () => {
+    const seen: number[] = [];
+    await trackPitchesAsync(twoNotes(), sr, {}, {
+      yieldEvery: 20,
+      onProgress: (r) => seen.push(r),
+      yieldTo: () => Promise.resolve(),
+    });
+    expect(seen.length).toBeGreaterThan(1);
+    expect(seen[seen.length - 1]).toBe(1);
+    // 最初から1を返す実装だと「解析中」の表示が意味をなさないので、途中の値を要求する
+    expect(seen[0]).toBeGreaterThan(0);
+    expect(seen[0]).toBeLessThan(1);
+    expect(seen.filter((r) => r > 0 && r < 1).length).toBeGreaterThanOrEqual(2);
+    for (let i = 1; i < seen.length; i++) {
+      expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1]);
+      expect(seen[i]).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("区切りごとに画面へ制御を返している", async () => {
+    let yields = 0;
+    // 0.8秒 = 47フレーム。yieldEvery はそれより十分小さくする
+    await trackPitchesAsync(twoNotes(), sr, {}, {
+      yieldEvery: 10,
+      yieldTo: () => {
+        yields++;
+        return Promise.resolve();
+      },
+    });
+    expect(yields).toBeGreaterThan(2);
+  });
+
+  it("無音でも落ちない", async () => {
+    const { midiFrames } = await trackPitchesAsync(new Float32Array(8000), sr);
+    expect(midiFrames.every((m) => m === null)).toBe(true);
   });
 });
 

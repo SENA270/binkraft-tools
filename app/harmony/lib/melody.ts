@@ -54,19 +54,65 @@ export function trackPitches(
   sampleRate: number,
   opts: TrackOptions = {},
 ): TrackResult {
-  const {
-    frameSize = 1024,
-    hopSize = 256,
-    medianWindow = 5,
-    ...pitchOpts
-  } = opts;
+  const { frameSize = 1024, hopSize = 256, medianWindow = 5, ...pitchOpts } = opts;
 
   const raw: (number | null)[] = [];
   for (let off = 0; off + frameSize <= samples.length; off += hopSize) {
-    const frame = samples.subarray(off, off + frameSize);
-    const f0 = detectPitch(frame, sampleRate, pitchOpts);
+    const f0 = detectPitch(samples.subarray(off, off + frameSize), sampleRate, pitchOpts);
     raw.push(f0 === null ? null : freqToMidi(f0));
   }
+
+  return {
+    midiFrames: medianFilter(raw, medianWindow),
+    hopSec: hopSize / sampleRate,
+  };
+}
+
+export type AsyncTrackHooks = {
+  /** 0〜1 の進み具合 */
+  onProgress?: (ratio: number) => void;
+  /** 何フレームごとに画面へ制御を返すか */
+  yieldEvery?: number;
+  /** 各区切りで制御を返す手段。既定は setTimeout(0) */
+  yieldTo?: () => Promise<void>;
+};
+
+/**
+ * trackPitches と同じ計算を、途中で画面に制御を返しながら行う。
+ * 長い音声だと数秒かかり、同期のままだと解析中の表示すら描画されないため。
+ *
+ * 結果が同期版と一致することはテストで固定している（実装が枝分かれしないように）。
+ */
+export async function trackPitchesAsync(
+  samples: Float32Array,
+  sampleRate: number,
+  opts: TrackOptions = {},
+  hooks: AsyncTrackHooks = {},
+): Promise<TrackResult> {
+  const { frameSize = 1024, hopSize = 256, medianWindow = 5, ...pitchOpts } = opts;
+  const {
+    onProgress,
+    yieldEvery = 150,
+    yieldTo = () => new Promise<void>((r) => setTimeout(r, 0)),
+  } = hooks;
+
+  const totalFrames = Math.max(
+    1,
+    Math.floor((samples.length - frameSize) / hopSize) + 1,
+  );
+
+  const raw: (number | null)[] = [];
+  let count = 0;
+  for (let off = 0; off + frameSize <= samples.length; off += hopSize) {
+    const f0 = detectPitch(samples.subarray(off, off + frameSize), sampleRate, pitchOpts);
+    raw.push(f0 === null ? null : freqToMidi(f0));
+    count++;
+    if (count % yieldEvery === 0) {
+      onProgress?.(Math.min(1, count / totalFrames));
+      await yieldTo();
+    }
+  }
+  onProgress?.(1);
 
   return {
     midiFrames: medianFilter(raw, medianWindow),

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { framesToNotes, trackPitches, type NoteEvent } from "./lib/melody";
+import { framesToNotes, trackPitchesAsync, type NoteEvent } from "./lib/melody";
 import {
   detectKey,
   keyLabel,
@@ -19,6 +19,8 @@ type Phase = "idle" | "recording" | "analyzing" | "result";
 type PlayMode = "harmony" | "both";
 
 const MAX_RECORD_SEC = 30;
+// これ以上長い音声は頭だけ見る。1曲まるごと渡されると解析に何十秒もかかるため
+const MAX_ANALYZE_SEC = 45;
 const ANALYSIS_RATE = 16000;
 const SPEEDS = [1, 0.75, 0.5];
 
@@ -67,8 +69,11 @@ function downmix(buffer: AudioBuffer): Float32Array {
 }
 
 /** 音程検出用に 16kHz へ落とす。ブラウザのリサンプラを使うので折り返しも処理される */
-async function resampleForAnalysis(buffer: AudioBuffer): Promise<Float32Array> {
-  const length = Math.max(1, Math.ceil(buffer.duration * ANALYSIS_RATE));
+async function resampleForAnalysis(
+  buffer: AudioBuffer,
+  maxSec: number,
+): Promise<Float32Array> {
+  const length = Math.max(1, Math.ceil(Math.min(buffer.duration, maxSec) * ANALYSIS_RATE));
   const off = newOfflineContext(1, length, ANALYSIS_RATE);
   const src = off.createBufferSource();
   src.buffer = buffer;
@@ -86,6 +91,8 @@ export default function HarmonyPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [trimmed, setTrimmed] = useState(false);
 
   const [voice, setVoice] = useState<{ samples: Float32Array; sampleRate: number } | null>(
     null,
@@ -149,33 +156,58 @@ export default function HarmonyPage() {
     async (data: Blob) => {
       setPhase("analyzing");
       setError(null);
+      setProgress(0);
+
+      let decoded: AudioBuffer;
       try {
         const ctx = getCtx();
         if (ctx.state === "suspended") await ctx.resume();
-        const decoded = await ctx.decodeAudioData(await data.arrayBuffer());
+        decoded = await ctx.decodeAudioData(await data.arrayBuffer());
+      } catch {
+        setError(
+          "このファイルは音声として読み込めませんでした。GarageBand などの制作ファイル（.band）や、音の入っていないファイルは使えません。書き出した m4a / mp3 / wav を選んでください。",
+        );
+        setPhase("idle");
+        return;
+      }
 
-        const analysisSamples = await resampleForAnalysis(decoded);
-        const { midiFrames, hopSec } = trackPitches(analysisSamples, ANALYSIS_RATE);
+      try {
+        const wasTrimmed = decoded.duration > MAX_ANALYZE_SEC;
+        const analysisSamples = await resampleForAnalysis(decoded, MAX_ANALYZE_SEC);
+        const { midiFrames, hopSec } = await trackPitchesAsync(
+          analysisSamples,
+          ANALYSIS_RATE,
+          {},
+          { onProgress: setProgress },
+        );
         const notes = framesToNotes(midiFrames, hopSec);
 
         if (notes.length < 2) {
           setError(
-            "歌の音程が取れませんでした。マイクに近づいて、伸ばし気味に「あー」で歌ってみてください（ハミングでもOK）。",
+            "歌の音程が取れませんでした。伴奏が入っていると拾えません。歌だけを、伸ばし気味に「あー」やハミングで録ってみてください。",
           );
           setPhase("idle");
           return;
         }
 
-        setVoice({ samples: downmix(decoded), sampleRate: decoded.sampleRate });
+        const voiceLen = Math.min(
+          decoded.length,
+          Math.floor(MAX_ANALYZE_SEC * decoded.sampleRate),
+        );
+        setVoice({
+          samples: downmix(decoded).subarray(0, voiceLen),
+          sampleRate: decoded.sampleRate,
+        });
         setMelody(notes);
         setAutoKey(detectKey(notes));
         setManualKey(null);
+        setTrimmed(wasTrimmed);
         setPhase("result");
       } catch (e) {
         setError(
           e instanceof Error
-            ? `音声を読み込めませんでした: ${e.message}`
-            : "音声を読み込めませんでした",
+            ? `解析できませんでした: ${e.message}`
+            : "解析できませんでした",
         );
         setPhase("idle");
       }
@@ -301,6 +333,8 @@ export default function HarmonyPage() {
     setManualKey(null);
     setError(null);
     setElapsed(0);
+    setProgress(0);
+    setTrimmed(false);
   }, [stopPlayback]);
 
   const keyUncertain = autoKey !== null && (autoKey.score < 0.6 || autoKey.margin < 0.05);
@@ -330,7 +364,9 @@ export default function HarmonyPage() {
           {phase === "analyzing" ? (
             <div className="py-8 text-center">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-indigo-600" />
-              <p className="mt-4 text-sm text-zinc-600">音程を解析しています…</p>
+              <p className="mt-4 text-sm text-zinc-600">
+                音程を解析しています… {Math.round(progress * 100)}%
+              </p>
             </div>
           ) : (
             <>
@@ -356,11 +392,15 @@ export default function HarmonyPage() {
                     >
                       歌って録音する
                     </button>
-                    <label className="cursor-pointer text-sm text-indigo-700 underline hover:text-indigo-900">
+                    <label className="cursor-pointer text-center text-sm text-indigo-700 underline hover:text-indigo-900">
                       音声ファイルを選ぶ
+                      {/*
+                        accept を付けると iPhone のファイル選択で音声まで
+                        グレーになって選べなくなるため、あえて絞り込まない。
+                        読めないファイルは decodeAudioData 側で弾いて案内する。
+                      */}
                       <input
                         type="file"
-                        accept="audio/*"
                         className="hidden"
                         onChange={(e) => {
                           const f = e.target.files?.[0];
@@ -369,6 +409,9 @@ export default function HarmonyPage() {
                         }}
                       />
                     </label>
+                    <p className="-mt-2 text-center text-xs text-zinc-400">
+                      ボイスメモ・m4a・mp3・wav など
+                    </p>
                   </>
                 )}
               </div>
@@ -412,6 +455,12 @@ export default function HarmonyPage() {
                 </button>
               )}
             </div>
+
+            {trimmed && (
+              <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-xs leading-relaxed text-zinc-700">
+                音声が長いため、はじめの {MAX_ANALYZE_SEC} 秒だけを使っています。
+              </p>
+            )}
 
             {keyUncertain && manualKey === null && (
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
