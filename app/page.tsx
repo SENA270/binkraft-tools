@@ -79,6 +79,13 @@ const tools = [
     color: "from-rose-500 to-pink-600",
   },
   {
+    href: "/harmony",
+    title: "ハモリメーカー",
+    description: "歌うだけでハモリのパートを作る。キーに合わせるので外れない。音名表示＋WAV保存",
+    emoji: "",
+    color: "from-indigo-500 to-violet-600",
+  },
+  {
     href: "/study-motivate",
     title: "勉強応援メッセージ",
     description: "諦めそうになったらこれを開け。手を抜くな、自分に嘘をつくな",
